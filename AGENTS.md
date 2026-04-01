@@ -54,6 +54,22 @@ In addition to environment-provided capabilities (e.g., tools, MCPs, Skills), th
 - **Skills** ([`skills/`](skills/)) — Reusable agent capabilities with scripts and instructions
 - **Commands** ([`commands/`](commands/)) — Human invokes via `/command`; AI receives prompt
 
+<commands-section>
+## Commands
+
+The [`commands/`](commands/) directory contains cross-tool AI commands invoked by humans via `/command` syntax. Commands are distributed to IDE command directories via [`.ai-workspace/scripts/transpile-commands.py`](.ai-workspace/scripts/transpile-commands.py).
+
+For more information, see [`commands/README.md`](commands/README.md).
+</commands-section>
+
+<skills-section>
+## Skills
+
+The [`skills/`](skills/) directory contains reusable agent skills following the [Agent Skills specification](https://agentskills.io/specification). Skills are distributed to IDE-specific directories via [`.ai-workspace/scripts/transpile-skills.py`](.ai-workspace/scripts/transpile-skills.py).
+
+For more information, see [`skills/README.md`](skills/README.md).
+</skills-section>
+
 ## Configuration
 
 This workspace is configured via `ai-workspace.toml` at the repository root. After changing configuration, agent docs, or `AGENTS.project.md`, regenerate workspace files:
@@ -176,3 +192,37 @@ git push origin <branch-name>      # Just push the submodule now
 # Parent reference is already correct, no additional action needed
 ```
 
+
+<project-context>
+## Team
+
+Data Science team at Red Hat. This workspace is a pilot for standardizing how we use Claude Code across the team.
+
+## Repositories
+
+- `repositories/ai-initiatives-observer/` — Pipeline that discovers AI-related work across the org by analyzing Jira tickets. Python, Gemini API.
+
+## Conventions (all repos)
+
+- **Language**: Python 3.10+
+- **Testing**: pytest. Run tests before committing.
+- **Secrets**: Never commit `.env` files, API keys, or tokens. Use environment variables.
+- **Branches**: Work on feature branches, not main. Open MRs for code review.
+- **Issue tracking**: Jira
+
+## Available Skills
+
+Skills activate automatically. See `instructions.md` for full details.
+
+- `verification-loop` — Unified verification engine (used by /verify, /review, /quality-gate)
+- `security-check` — Credential leaks, LLM security, insecure patterns
+- `data-pipeline-patterns` — Pipeline stage design, validation, debugging
+- `api-client-patterns` — Retry logic, rate limiting, API integration
+- `python-testing` — TDD workflow + data science testing patterns
+- `python-patterns` — Team dotenv conventions
+- `git-workflow` — GitLab/GitHub, submodule workflow
+- `mcp-patterns` — Building and securing MCP servers
+- `deep-research` — Multi-source research and analysis
+- `codebase-onboarding` — Systematic onboarding to unfamiliar codebases
+- `compound-engineering` — Captures session patterns as persistent memories
+</project-context>
