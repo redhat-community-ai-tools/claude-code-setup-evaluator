@@ -225,4 +225,8 @@ Skills activate automatically. See `instructions.md` for full details.
 - `deep-research` — Multi-source research and analysis
 - `codebase-onboarding` — Systematic onboarding to unfamiliar codebases
 - `compound-engineering` — Captures session patterns as persistent memories
+- `brainstorming` — Collaborative design exploration before implementation
+- `writing-plans` — Creates detailed implementation plans from approved specs
+- `subagent-driven-development` — Executes plans by dispatching a subagent per task with two-stage review
+- `writing-skills` — Creates new AI skills using TDD for documentation
 </project-context>
