@@ -48,6 +48,9 @@ For the main source files, check:
 - **Naming** — unclear variable/function names, inconsistent conventions
 - **Testing** — coverage gaps, untested critical paths, brittle tests
 - **Security** — hardcoded secrets, injection risks, PII handling
+- **Separation of concerns** — each file/module has one clear responsibility with a well-defined interface
+- **Coupling** — can units be understood and tested independently? Can you change internals without breaking consumers?
+- **SOLID principles** — proper abstractions, dependency direction, interface segregation
 
 ### Step 4: Review AI Workspace Setup (if applicable)
 
@@ -61,7 +64,24 @@ If this is a Claude Code workspace with skills/commands/hooks:
 - **Are skills teaching Claude things it already knows?** (generic tutorials = waste)
 - **Are skills teaching team-specific knowledge?** (conventions, workflows = value)
 
-### Step 5: Produce the Review
+### Step 5: Plan Alignment Check (SKIP if no specs/plans exist)
+
+Check for design specs or implementation plans in `docs/`, `.tmp/`, or similar. If none exist, skip this step entirely and move to Step 6.
+
+If specs/plans are found:
+
+- **Compare implementation against the plan** — did the code deliver what was specified?
+- **Identify deviations** — are they justified improvements or problematic departures?
+- **Check for missing pieces** — requirements specified but not implemented
+- **Check for scope creep** — features built that weren't in any plan
+- **Verify integration** — does the implementation integrate well with existing systems?
+
+Categorize findings as:
+- **Critical** — must fix, blocks production readiness
+- **Important** — should fix, causes maintenance burden or risk
+- **Suggestions** — nice to have, improves quality but not urgent
+
+### Step 6: Produce the Review
 
 Format the review as:
 
@@ -94,6 +114,11 @@ CODE QUALITY SCORE: [A/B/C/D/F]
 
 REDUNDANCY CHECK:
   [List any items that duplicate each other]
+
+PLAN ALIGNMENT (only if specs/plans were found — omit this section otherwise):
+  [How well does the implementation match the design?
+   Deviations found — justified or problematic?
+   Missing requirements, scope creep, integration issues]
 
 MISSING:
   [Things that should exist but don't]
