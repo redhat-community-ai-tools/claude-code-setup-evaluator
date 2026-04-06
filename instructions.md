@@ -76,6 +76,7 @@ Type the command name in the chat to run it.
 | /diff-explain | Explain changes grouped by intent, not file count | "The pipeline was split into 3 independent steps" instead of "14 files changed" |
 | /visualize | Generate an interactive HTML project map with collapsible file tree, color-coded by language | Get a visual overview of the repo structure with file sizes and language breakdown |
 | /ai-engineer-review | Brutally honest architecture/code/security review with scored assessment and top 3 prioritized improvements | `/ai-engineer-review security` — focused security audit with concrete fix instructions |
+| /commit | Generate an accurate commit message from the diff + conversation context, show preview, commit after approval | You've been adding retry logic all session — type `/commit` and get "Add exponential backoff to Jira API client" with a body explaining why, not "update jira_client.py" |
 
 ---
 
