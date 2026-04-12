@@ -10,8 +10,6 @@ Welcome! This workspace gives you superpowers when working with AI coding assist
    ```bash
    cd repositories/
    git clone <your-repo-url>
-   cd ../
-   git submodule add <your-repo-url> repositories/<repo-name>
    ```
 
 2. **Start your AI tool** in the workspace root:
@@ -21,9 +19,28 @@ Welcome! This workspace gives you superpowers when working with AI coding assist
    | Claude Code | Run `claude` in the terminal |
    | Cursor | Open the workspace folder in Cursor |
 
-3. **Type `/toolkit`** to see what's available and get recommendations based on your current repo.
+3. **Tell the AI which repo to focus on** — e.g., "work on site-analysis" or "I'm working on repositories/my-project."
+
+4. **Type `/toolkit`** to see what's available and get recommendations based on your current repo.
 
 That's it. Everything else activates automatically as you work.
+
+> **Note:** Your cloned repos are gitignored — they belong to you, not the workspace. Push changes from inside the repo folder and they go to that repo's remote. The workspace never tracks your repos.
+
+---
+
+## Start Here
+
+Your daily workflow in 4 commands:
+
+```
+/plan          → before coding anything complex
+/verify        → after coding, check it works
+/review        → code review
+/commit        → commit with a good message
+```
+
+Everything else is available when you need it. Skills activate automatically — you don't need to do anything to benefit from them.
 
 ---
 
@@ -59,7 +76,7 @@ Skills activate on their own — you just get better results. In Claude Code the
 | security-check | Credential leak detection (Gemini, OpenAI, Jira, AWS, GitHub keys), insecure code (eval, pickle, shell injection), LLM-specific risks | You send raw email addresses to Gemini — the AI flags PII leakage and suggests sanitizing before sending |
 | data-pipeline-patterns | Pipeline stage design, data validation at boundaries, circuit breakers, checkpoint/resume, debugging workflow | You add a new pipeline step — the AI structures it with input validation, checkpoints every 100 items, and a circuit breaker after 5 consecutive API failures |
 | api-client-patterns | Retry with exponential backoff, rate limiting, auth, pagination, LLM response parsing | You build a Jira API client — the AI adds `timeout=30`, retry for 429/500/502/503 with `Retry-After` support, and validates the response structure |
-| git-workflow | GitLab/GitHub conventions, submodule push-before-parent pattern, common pitfalls | You push changes in a submodule — the AI pushes the submodule first, then updates the parent reference, following the correct order |
+| git-workflow | GitLab/GitHub conventions, branch workflow, commit practices | You commit changes in a repo — the AI follows team conventions: feature branches, clear commit messages, MRs for review |
 | mcp-patterns | Building/securing MCP servers — schema-first design, auth, input validation, audit logging, DS-specific patterns | You build an MCP tool for querying datasets — the AI enforces Pydantic input schemas with limits (`max_rows=10000`) and adds audit logging |
 | verification-loop | Unified verification engine behind `/verify`, `/review`, `/quality-gate` — environment checks, types, lint, tests, code review, security scans | You say "review my changes" — the AI checks for bare `except` clauses, functions over 50 lines, data leakage, and gives APPROVE or REQUEST CHANGES |
 | deep-research | Multi-source research — breaks questions into sub-queries, searches in parallel, synthesizes with citations | You ask "best Python library for HTML-to-PDF?" — the AI researches weasyprint, pdfkit, playwright, compares tradeoffs, and recommends one |
