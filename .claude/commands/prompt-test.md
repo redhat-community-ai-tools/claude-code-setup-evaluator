@@ -1,0 +1,1 @@
+/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/prompt-test/command.md
