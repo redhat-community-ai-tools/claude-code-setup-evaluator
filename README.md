@@ -8,7 +8,7 @@ AI assistants work great in a single repo, but our team works across multiple pr
 
 - **Shared skills** — team knowledge baked into the AI (dotenv patterns, pipeline design, security checks, TDD workflows, and more)
 - **Shared commands** — `/verify`, `/review`, `/quality-gate`, `/plan`, `/recap` — the same workflows everywhere
-- **Cross-repo visibility** — all our repos as submodules, so the AI can see and work across project boundaries
+- **Cross-repo visibility** — all our repos in one workspace, so the AI can see and work across project boundaries
 - **Onboarding in minutes** — new team members (or new repos) get the full AI setup immediately
 
 ## Quick Start
@@ -21,8 +21,10 @@ cd ai-workspace-template-ds
 # 2. Install dependencies
 uv sync
 
-# 3. Initialize submodules
-git submodule update --init --recursive
+# 3. Clone your repos into the workspace
+cd repositories/
+git clone <your-repo-url>
+cd ..
 
 # 4. Start your AI tool
 claude                # Claude Code
@@ -33,14 +35,15 @@ claude                # Claude Code
 
 To add your own repo:
 ```bash
-git submodule add <repo-url> repositories/<repo-name>
+cd repositories/
+git clone <repo-url>
 ```
 
 ## What's Inside
 
 | Directory | What it is |
 |---|---|
-| `repositories/` | Team repos as git submodules |
+| `repositories/` | Team repos (clone your own here) |
 | `skills/` | 15 AI skills — team patterns, security, testing, pipelines, and more |
 | `commands/` | 13 slash commands — `/plan`, `/verify`, `/review`, `/quality-gate`, etc. |
 | `agent-docs/` | Modular documentation the AI reads based on task relevance |
