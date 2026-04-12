@@ -1,7 +1,7 @@
 ---
 name: git-workflow
 version: "1.0"
-description: Team-specific git conventions for GitLab and GitHub workflows, submodule handling, and commit practices. Kept short — will be expanded as the team defines more conventions.
+description: Team-specific git conventions for GitLab and GitHub workflows and commit practices. Kept short — will be expanded as the team defines more conventions.
 ---
 
 # Git Workflow — Team Conventions
@@ -11,7 +11,6 @@ Team-specific git patterns. Claude already knows git basics — this covers what
 ## When to Activate
 
 - When committing, pushing, or creating MRs/PRs
-- When working with submodules
 - When resolving merge conflicts
 - When handling git operations across GitLab and GitHub repos
 
@@ -21,27 +20,17 @@ The team uses both **GitLab** (primary, for internal repos) and **GitHub** (for 
 - GitLab: `glab` CLI or git push + web UI for MRs
 - GitHub: `gh` CLI for PRs
 
-## Submodule Workflow
+## Working in Repositories
 
-This workspace uses git submodules. **Always push submodule before parent:**
+Repos in `repositories/` are regular clones — not submodules. Commit and push directly from within the repo:
 
 ```bash
-# 1. Commit and push inside the submodule
-cd repositories/<submodule>
+cd repositories/<repo>
 git add <files> && git commit -m "message"
-git push origin main
-
-# 2. Then update parent
-cd ../..
-git add repositories/<submodule>
-git commit -m "Update <submodule> reference"
-git push origin main
+git push origin <branch>
 ```
 
-**Common submodule pitfalls:**
-- **Detached HEAD**: If you're in detached HEAD inside a submodule, create a branch first: `git checkout -b <branch>`
-- **Forgot to push submodule**: Just push the submodule now — parent reference is already correct
-- **Don't run** `git submodule update --remote` during regular work — it updates pinned references
+Changes push to that repo's own remote. The workspace repo is not involved.
 
 ## Commit Conventions
 
