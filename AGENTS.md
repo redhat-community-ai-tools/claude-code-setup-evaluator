@@ -39,6 +39,21 @@ For more information, see [`agent-docs/README.md`](agent-docs/README.md).
 ### Agent Docs
 
 <agent-docs-items>
+<doc path="agent-docs/codebase-onboarding.md">
+<name>Codebase Onboarding</name>
+<description>Systematic onboarding to unfamiliar codebases. Analyzes project structure, tech stack, conventions, entry points, and data flow to produce an onboarding guide. Use when joining a new project or helping a team member get started.</description>
+<when-to-read>Systematic onboarding to unfamiliar codebases. Analyzes project structure, tech stack, conventions, entry points, and data flow to produce an onboarding guide. Use when joining a new project or helping a team member get started.</when-to-read>
+</doc>
+<doc path="agent-docs/deep-research.md">
+<name>Deep Research</name>
+<description>Multi-source deep research with citations. Use when the user wants thorough research on any topic — technology evaluation, library comparison, algorithm analysis, literature review, or competitive analysis. Searches the web, synthesizes findings, and delivers cited reports.</description>
+<when-to-read>Multi-source deep research with citations. Use when the user wants thorough research on any topic — technology evaluation, library comparison, algorithm analysis, literature review, or competitive analysis. Searches the web, synthesizes findings, and delivers cited reports.</when-to-read>
+</doc>
+<doc path="agent-docs/mcp-patterns.md">
+<name>Mcp Patterns</name>
+<description>Patterns for building, securing, and consuming MCP (Model Context Protocol) servers. Covers schema-first design, authentication, input validation, audit logging, and security best practices.</description>
+<when-to-read>Patterns for building, securing, and consuming MCP (Model Context Protocol) servers. Covers schema-first design, authentication, input validation, audit logging, and security best practices.</when-to-read>
+</doc>
 <doc path="agent-docs/subagent-driven-development.md">
 <name>Subagent-Driven Development Guide</name>
 <description>Execute implementation plans by dispatching a fresh subagent per task with two-stage review (spec compliance, then code quality). Power-user workflow for complex multi-task implementations.</description>
@@ -193,12 +208,8 @@ Skills activate automatically. See `instructions.md` for full details.
 - `security-check` — Credential leaks, LLM security, insecure patterns
 - `data-pipeline-patterns` — Pipeline stage design, validation, debugging
 - `api-client-patterns` — Retry logic, rate limiting, API integration
-- `python-testing` — TDD workflow + data science testing patterns
-- `python-patterns` — Team dotenv conventions
+- `python-conventions` — Team dotenv conventions + TDD workflow + testing patterns
 - `git-workflow` — GitLab/GitHub conventions, branch workflow
-- `mcp-patterns` — Building and securing MCP servers
-- `deep-research` — Multi-source research and analysis
-- `codebase-onboarding` — Systematic onboarding to unfamiliar codebases
 - `brainstorming` — Collaborative design exploration before implementation
 - `writing-plans` — Creates detailed implementation plans from approved specs
 </project-context>

@@ -1,7 +1,11 @@
 ---
-description: Patterns for building, securing, and consuming MCP (Model Context Protocol) servers. Covers schema-first design, authentication, input validation, audit logging, and security best practices.
-globs: "**/*.py"
-alwaysApply: false
+title: "Mcp Patterns"
+description: |
+  Patterns for building, securing, and consuming MCP (Model Context Protocol) servers. Covers schema-first design, authentication, input validation, audit logging, and security best practices.
+when: |
+  Patterns for building, securing, and consuming MCP (Model Context Protocol) servers. Covers schema-first design, authentication, input validation, audit logging, and security best practices.
+---
+
 ---
 
 # MCP Server Patterns
@@ -30,6 +34,7 @@ Best practices for building and consuming MCP servers — the protocol that lets
 Always define input schemas with validation — never accept raw unvalidated input:
 
 ```python
+# Python MCP server example
 from mcp.server import Server
 from pydantic import BaseModel, Field
 
@@ -40,6 +45,7 @@ class QueryInput(BaseModel):
 
 @server.tool("query_data", "Query a dataset with filters")
 async def query_data(input: QueryInput):
+    # Input is already validated by Pydantic
     results = db.query(input.dataset, input.filters, input.limit)
     return {"rows": len(results), "data": results}
 ```
@@ -68,6 +74,7 @@ headers = {"Authorization": f"Bearer {user_context.token}"}
 ### Input Validation
 
 ```python
+# Validate and sanitize all inputs before use
 import re
 
 def validate_jira_key(key: str) -> str:
@@ -81,6 +88,19 @@ def validate_jira_key(key: str) -> str:
 os.system(f"grep {user_input} data.json")
 # GOOD:
 subprocess.run(["grep", user_input, "data.json"], capture_output=True)
+```
+
+### User Approval for Risky Operations
+
+```python
+# Require confirmation for destructive or sensitive actions
+RISKY_OPERATIONS = {"delete", "bulk_update", "export_pii", "drop_table"}
+
+@server.tool("delete_record")
+async def delete_record(record_id: str):
+    # MCP framework handles approval — tool description should state:
+    # "This tool deletes data permanently. Requires user confirmation."
+    pass
 ```
 
 ### Audit Logging
@@ -99,6 +119,7 @@ async def query_data(input: QueryInput, context: RequestContext):
             "timestamp": datetime.now().isoformat(),
         }
     )
+    # ... execute query
 ```
 
 ## Configuration (.mcp.json)
@@ -113,6 +134,14 @@ async def query_data(input: QueryInput, context: RequestContext):
         "JIRA_URL": "https://your-instance.atlassian.net",
         "JIRA_TOKEN": "${JIRA_TOKEN}"
       }
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_TOKEN}",
+        "GITLAB_API_URL": "https://gitlab.example.com"
+      }
     }
   }
 }
@@ -124,10 +153,18 @@ async def query_data(input: QueryInput, context: RequestContext):
 - **Add `.mcp.json` to `.gitignore`** if it contains environment-specific values
 - **Use `.mcp.json.example`** with placeholder values for team distribution
 
+## Transport Selection
+
+| Transport | Best For | Setup |
+|-----------|---------|-------|
+| **stdio** | Local development, Claude Desktop, single user | Simplest — just run the server as a subprocess |
+| **Streamable HTTP** | Remote teams, Cursor, cloud deployment, multiple clients | Single HTTP endpoint, supports auth headers |
+
 ## Common MCP Patterns for Data Science
 
 ### Data Source MCP
 
+Expose datasets and queries as MCP tools:
 - `list_datasets` — returns available datasets
 - `query_dataset` — run filtered queries with limits
 - `get_schema` — return column names, types, sample values
@@ -135,17 +172,19 @@ async def query_data(input: QueryInput, context: RequestContext):
 
 ### Model MCP
 
+Expose ML models as MCP tools:
 - `list_models` — available models and versions
 - `predict` — run inference with input validation
 - `get_model_info` — architecture, training date, metrics
+- `compare_models` — side-by-side performance comparison
 
 ## Anti-Patterns to Avoid
 
 | Anti-Pattern | Risk | Fix |
 |-------------|------|-----|
-| Server using its own credentials | Privilege escalation | Use principal-based auth |
+| Server using its own credentials | Privilege escalation | Use principal-based auth (user's token) |
 | No input validation | Injection attacks | Validate with Pydantic schemas |
-| No audit logging | No accountability | Log every tool call |
+| No audit logging | No accountability | Log every tool call with user + params |
 | Hardcoded secrets in config | Credential exposure | Use environment variable references |
-| Overly broad tool permissions | Excessive agency | Scope tools narrowly |
+| Overly broad tool permissions | Excessive agency | Scope tools narrowly, require approval for writes |
 | Returning raw error tracebacks | Information leakage | Return structured error messages |

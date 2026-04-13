@@ -24,11 +24,7 @@ Skills activate automatically. See `instructions.md` for full details.
 - `security-check` — Credential leaks, LLM security, insecure patterns
 - `data-pipeline-patterns` — Pipeline stage design, validation, debugging
 - `api-client-patterns` — Retry logic, rate limiting, API integration
-- `python-testing` — TDD workflow + data science testing patterns
-- `python-patterns` — Team dotenv conventions
+- `python-conventions` — Team dotenv conventions + TDD workflow + testing patterns
 - `git-workflow` — GitLab/GitHub conventions, branch workflow
-- `mcp-patterns` — Building and securing MCP servers
-- `deep-research` — Multi-source research and analysis
-- `codebase-onboarding` — Systematic onboarding to unfamiliar codebases
 - `brainstorming` — Collaborative design exploration before implementation
 - `writing-plans` — Creates detailed implementation plans from approved specs

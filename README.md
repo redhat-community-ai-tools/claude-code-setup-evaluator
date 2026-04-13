@@ -80,7 +80,7 @@ Pushes go to the repo's own remote. The workspace is never involved.
 
 ## What You DON'T Need To Do
 
-- **Don't memorize skills.** There are 15 of them (security, pipelines, testing, etc.) — they activate automatically when relevant. You just get better results without thinking about it.
+- **Don't memorize skills.** There are 8 of them (security, pipelines, testing, etc.) — they activate automatically when relevant. You just get better results without thinking about it.
 - **Don't configure anything per-repo.** The workspace handles it.
 - **Don't worry about pushing to the wrong repo.** Your repos are independent clones. `git push` from inside a repo goes to that repo's remote.
 
@@ -130,7 +130,7 @@ Claude: ## What was done
 | Directory | What it is |
 |---|---|
 | `repositories/` | Your repos — clone what you need here |
-| `skills/` | 12 AI skills — team patterns, security, testing, pipelines, and more |
+| `skills/` | 8 AI skills — team patterns, security, testing, pipelines, and more |
 | `commands/` | 17 slash commands — `/plan`, `/verify`, `/review`, `/quality-gate`, etc. |
 | `agent-docs/` | On-demand documentation the AI reads when relevant (writing skills guide, subagent development, etc.) |
 | `.cursor/rules/` | Same skills, formatted for Cursor |

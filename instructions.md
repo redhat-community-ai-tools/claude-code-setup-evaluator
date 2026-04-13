@@ -69,20 +69,26 @@ This workspace has four types of capabilities:
 
 Skills activate on their own — you just get better results. In Claude Code they live in `skills/`, in Cursor they live in `.cursor/rules/`. Same content, different format.
 
-| Name | Purpose | Example |
+| Name | Purpose | Example | How it works backstage |
+|---|---|---|---|
+| python-conventions | Team dotenv conventions, TDD workflow, pytest patterns | You write `os.getenv("API_KEY", "AIza...")` — the AI flags the real key in the default and fixes it | Loaded into context when you edit Python files. The skill-suggest hook detects Python work and attaches it. ~300 words. |
+| security-check | Credential leak detection (Gemini, Jira, AWS keys), insecure code (eval, pickle, shell injection), LLM-specific risks | You send raw email addresses to Gemini — the AI flags PII leakage and suggests sanitizing | Loaded when you edit code that touches credentials, APIs, or security-sensitive patterns. Also runs as a git hook before commit/push. ~1,020 words. |
+| data-pipeline-patterns | Pipeline stage design, data validation, circuit breakers, checkpoint/resume, debugging | You add a new pipeline step — the AI structures it with validation, checkpoints, and a circuit breaker | Loaded when you work on pipeline scripts or data processing code. Teaches team-specific stage structure. ~908 words. |
+| api-client-patterns | Retry with exponential backoff, rate limiting, auth, pagination, LLM response parsing | You build a Jira API client — the AI adds timeout, retry for 429/500, and validates the response | Loaded when you write code that calls external APIs (Jira, Gemini, LDAP, etc.). ~787 words. |
+| git-workflow | GitLab/GitHub conventions, branch workflow, commit practices | You commit changes — the AI follows team conventions: feature branches, clear messages, MRs | Loaded when you do git operations. Very lightweight. ~279 words. |
+| verification-loop | Unified engine behind `/verify`, `/review`, `/quality-gate` — environment, types, lint, tests, review, security | You run `/review` — the AI checks for bare excepts, long functions, data leakage | Loaded only when you invoke /verify, /review, or /quality-gate. Powers all three commands. ~503 words. |
+| brainstorming | Design exploration before implementation — asks questions, proposes approaches, presents design for approval | You say "I want to add retry logic" — the AI asks about failure modes, proposes approaches, writes a spec | Loaded when creative/design work is detected. Hard gate prevents coding before design approval. ~332 words. |
+| writing-plans | Creates implementation plans from approved specs — bite-sized tasks, exact file paths, TDD steps | The AI produces: "Task 1: write failing test, Task 2: implement, Task 3: verify..." | Loaded after brainstorming completes or when you need a detailed plan. ~914 words. |
+
+**On-demand docs (agent-docs/):** These are NOT loaded every session. The AI reads them only when the task requires it — saving tokens for normal work.
+
+| Name | Purpose | How it works backstage |
 |---|---|---|
-| python-patterns | Team dotenv conventions — `.env` structure, loading patterns, secure defaults | You write `os.getenv("API_KEY", "AIza...")` — the AI flags the real key in the default and fixes it to `os.getenv("API_KEY")` with a validation check |
-| python-testing | TDD workflow (red/green/refactor), pytest patterns, data science testing (DataFrames, models) | You say "add a validation function" — the AI writes a failing test first with `pd.testing.assert_frame_equal`, then implements to make it pass |
-| security-check | Credential leak detection (Gemini, OpenAI, Jira, AWS, GitHub keys), insecure code (eval, pickle, shell injection), LLM-specific risks | You send raw email addresses to Gemini — the AI flags PII leakage and suggests sanitizing before sending |
-| data-pipeline-patterns | Pipeline stage design, data validation at boundaries, circuit breakers, checkpoint/resume, debugging workflow | You add a new pipeline step — the AI structures it with input validation, checkpoints every 100 items, and a circuit breaker after 5 consecutive API failures |
-| api-client-patterns | Retry with exponential backoff, rate limiting, auth, pagination, LLM response parsing | You build a Jira API client — the AI adds `timeout=30`, retry for 429/500/502/503 with `Retry-After` support, and validates the response structure |
-| git-workflow | GitLab/GitHub conventions, branch workflow, commit practices | You commit changes in a repo — the AI follows team conventions: feature branches, clear commit messages, MRs for review |
-| mcp-patterns | Building/securing MCP servers — schema-first design, auth, input validation, audit logging, DS-specific patterns | You build an MCP tool for querying datasets — the AI enforces Pydantic input schemas with limits (`max_rows=10000`) and adds audit logging |
-| verification-loop | Unified verification engine behind `/verify`, `/review`, `/quality-gate` — environment checks, types, lint, tests, code review, security scans | You say "review my changes" — the AI checks for bare `except` clauses, functions over 50 lines, data leakage, and gives APPROVE or REQUEST CHANGES |
-| deep-research | Multi-source research — breaks questions into sub-queries, searches in parallel, synthesizes with citations | You ask "best Python library for HTML-to-PDF?" — the AI researches weasyprint, pdfkit, playwright, compares tradeoffs, and recommends one |
-| codebase-onboarding | 4-phase analysis of unfamiliar codebases — reconnaissance, architecture mapping, convention detection, guide generation | You open a repo you've never seen — the AI maps the structure, identifies entry points, detects testing conventions, and produces a "start here" guide |
-| brainstorming | Collaborative design exploration before implementation — asks clarifying questions one at a time, proposes 2-3 approaches with trade-offs, presents design for approval, writes spec doc | You say "I want to add retry logic" — the AI asks about failure modes, proposes approaches (simple retry vs exponential backoff vs circuit breaker), presents a design, writes a spec, and only then moves to planning |
-| writing-plans | Creates detailed implementation plans from approved specs — bite-sized tasks (2-5 min each), exact file paths, complete code blocks, TDD steps, no placeholders | The AI takes your approved design and produces a step-by-step plan: "Task 1: write failing test for X, Task 2: implement X, Task 3: write failing test for Y..." with full code in every step |
+| mcp-patterns | Building and securing MCP servers | Read on demand when you're building MCP servers. Not loaded otherwise. ~781 words saved per session. |
+| deep-research | Multi-source research with citations | Read on demand when you ask for thorough research. ~706 words saved. |
+| codebase-onboarding | Systematic onboarding to unfamiliar codebases | Read on demand when you're exploring a new repo. ~637 words saved. |
+| writing-skills | TDD methodology for creating new skills | Read on demand when you're extending the workspace. ~3,249 words saved. |
+| subagent-driven-development | Dispatching subagents per task with two-stage review | Read on demand for complex multi-task implementations. ~1,567 words saved. |
 
 ---
 
@@ -90,25 +96,25 @@ Skills activate on their own — you just get better results. In Claude Code the
 
 Type the command name in the chat to run it. Commands work the same in both Claude Code and Cursor.
 
-| Name | Purpose | Example |
-|---|---|---|
-| /plan | Restate requirements, search for existing solutions, identify risks, create a step-by-step plan. Waits for your OK before writing code | "I need to add retry logic to the pipeline" — the AI searches for existing retry patterns, proposes a plan, and waits for approval |
-| /verify | Run verification phases 1–4: environment, types, lint, tests. Use after coding, before review | After writing a new module — run `/verify` to catch type errors and failing tests before review |
-| /review | Run phase 5: code review with DS anti-patterns and security checks. Produces APPROVE or REQUEST CHANGES. Use after `/verify` | The AI checks for bare `except` clauses, data leakage, functions over 50 lines, and gives a verdict |
-| /quality-gate | Run phases 1–4 + 6: tests + secret scan + pre-commit. Gives READY TO PUSH or BLOCKED. Use right before `git push` | Before pushing — run `/quality-gate` to confirm no secrets leaked and all tests pass |
-| /test-coverage | Analyze coverage, list untested files, prioritize what to test next (HIGH/MEDIUM/LOW) | The AI finds 3 core functions with no tests and marks them HIGH priority |
-| /toolkit | Show all available skills, commands, and agents, recommend based on current context. Start here if you're new | Type `/toolkit` in a new repo — get a tailored list of what's available and what to use first |
-| /recap | Summarize the session — what changed, why, key decisions. Copy-pasteable for standup or Slack | After a long session — get a structured update ready to paste into your team channel |
-| /diff-explain | Explain changes grouped by intent, not file count | "The pipeline was split into 3 independent steps" instead of "14 files changed" |
-| /visualize | Generate an interactive HTML project map with collapsible file tree, color-coded by language | Get a visual overview of the repo structure with file sizes and language breakdown |
-| /ai-engineer-review | Brutally honest architecture/code/security review with scored assessment and top 3 prioritized improvements | `/ai-engineer-review security` — focused security audit with concrete fix instructions |
-| /commit | Generate a short, accurate commit message from the diff + conversation context, show preview, commit after approval | You've been adding retry logic — type `/commit` and get `Add exponential backoff to Jira API client` instead of `update jira_client.py` |
-| /refactor-safe | Refactor internals without changing public API — fixes long functions, duplication, poor naming while keeping the external interface identical | A 65-line handler doing validation + inference + logging → the AI extracts helpers, simplifies nesting, but the function signature and return type stay exactly the same |
-| /env-check | Validate local development environment — Python version, dependencies, env vars, config files, pre-commit hooks | You clone a repo after two weeks — run `/env-check` and get a pass/fail summary: "GOOGLE_API_KEY missing, pre-commit not installed" with fix instructions |
-| /explain-simple | Explain a file or folder in very simple words, like to a 15-year-old — no jargon, no code, just what it does and why | `/explain-simple scripts/fetch_jira_data.py` — "This script downloads work tickets from Jira. It goes through a list of people and looks up their tasks, one person at a time..." |
-| /prompt-test | Test LLM prompts against sample inputs — checks completeness, format compliance, grounding, and parseability. Catches regressions when prompts change | `/prompt-test prompts/person_prompts.py` — runs the prompt with 3 sample inputs, calls Gemini, shows parsed results, flags hallucinations on sparse input |
-| /explain-code | Explain code from high-level overview to line-by-line analysis, scaled to complexity | `/explain-code src/pipeline/jira_client.py` — get purpose, structure breakdown, data flow, and gotchas for onboarding or knowledge transfer |
-| /architecture-docs | Generate architecture documentation with Mermaid diagrams — system overview, data flow, components, design decisions | `/architecture-docs repositories/ai-initiatives-observer` — produces a maintainable architecture doc with data flow diagrams and ADRs |
+| Name | Purpose | Example | How it works backstage |
+|---|---|---|---|
+| /plan | Restate requirements, identify risks, create step-by-step plan. Waits for OK before coding | "Add retry logic to the pipeline" — proposes a plan, waits for approval | Loads the command markdown (~387 words) into context only when invoked. Zero cost until you type it. |
+| /verify | Run environment, types, lint, tests | After coding — catch type errors and failing tests | Invokes the verification-loop skill, runs phases 1-4. Exits after tests. |
+| /review | Code review with security and DS anti-pattern checks | Checks for bare excepts, data leakage, long functions | Invokes verification-loop phase 5 only. Produces APPROVE or REQUEST CHANGES. |
+| /quality-gate | Pre-push safety check: tests + secret scan + pre-commit | Before pushing — confirms no secrets leaked, tests pass | Invokes verification-loop phases 1-4 + 6. Skips code review. |
+| /commit | Generate commit message from diff, show preview, commit after approval | Type `/commit` → get "Add exponential backoff to Jira API client" | Reads git diff, analyzes changes, drafts message. Never commits without your approval. |
+| /test-coverage | Analyze coverage, find untested code, generate missing tests | Finds 3 core functions with no tests, marks them HIGH priority | Runs pytest --cov, analyzes output, generates test files targeting gaps. |
+| /toolkit | Show all skills, commands, agents. Recommends based on current context | Type in a new repo — get tailored recommendations | Scans the repo type, recent changes, and project structure to suggest relevant tools. |
+| /recap | Summarize session — what changed, why, key decisions. Copy-pasteable | Get a structured standup update after a long session | Reads git log, diffs, and conversation history to generate summary. |
+| /diff-explain | Explain changes grouped by intent, not file count | "Pipeline was split into 3 steps" instead of "14 files changed" | Reads git diff, groups changes by purpose, explains the "why" not the "what". |
+| /ai-engineer-review | Brutally honest architecture/code/security review | `/ai-engineer-review security` — focused security audit | Spawns parallel agents to read all skills, commands, source files. Produces scored assessment. |
+| /refactor-safe | Refactor internals without changing public API | 65-line handler → extracted helpers, same signature | Documents the public API first, then refactors. Verifies API unchanged after. |
+| /env-check | Validate local environment: Python, deps, env vars, config, hooks | "GOOGLE_API_KEY missing, pre-commit not installed" | Checks each component independently, reports pass/fail with fix instructions. |
+| /explain-simple | Explain a file or folder like you're 15 — no jargon | "This script downloads work tickets from Jira..." | Reads the target, rewrites explanation with analogies, no code, under 200 words. |
+| /explain-code | Explain code from high-level to line-by-line, scaled to complexity | Purpose, structure, data flow, gotchas for a pipeline file | Reads imports, call patterns, and usage to build layered explanation. |
+| /prompt-test | Test LLM prompts against sample inputs, catch regressions | Runs prompt with 3 inputs, flags hallucinations on sparse data | Calls the prompt function, optionally calls the LLM, evaluates output quality. |
+| /architecture-docs | Generate architecture docs with Mermaid diagrams | System overview, data flow, design decisions | Scans project structure, traces data flow, generates markdown with diagrams. |
+| /visualize | Interactive HTML project map with file tree | Color-coded by language, file sizes, breakdown chart | Scans all files, collects metadata, generates standalone HTML with inline JS/CSS. |
 
 ---
 
@@ -123,27 +129,6 @@ The AI spawns these as sub-processes for parallel or specialized work.
 | general-purpose | Handle multi-step research or complex tasks autonomously | Yes — dedicated agent type | Yes — background agent |
 
 ---
-
-## Recommended Workflow
-
-This workflow is the same regardless of which tool you use:
-
-```
-/plan          →  align on approach, search for existing solutions
-                  ↓
-(write code)   →  skills activate automatically
-                  ↓
-/verify        →  does my code work? (tests, outputs)
-                  ↓
-/review        →  check code quality and security
-                  ↓
-/quality-gate  →  am I safe to push? (tests + secrets + lint)
-                  ↓
-git push       →  secret scan hook runs automatically (Claude Code)
-                  /quality-gate covers this for Cursor users
-                  ↓
-/recap         →  summarize for standup or stakeholders
-```
 
 ---
 
