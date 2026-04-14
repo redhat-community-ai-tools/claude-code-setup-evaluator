@@ -6,22 +6,36 @@ Welcome! This workspace gives you superpowers when working with AI coding assist
 
 ## Setup
 
-1. **Clone your repo** into the `repositories/` folder:
+1. **Clone the workspace** and install dependencies:
+   ```bash
+   git clone git@gitlab.cee.redhat.com:bkapner/ai-workspace-template-ds.git
+   cd ai-workspace-template-ds
+   uv sync
+   ```
+
+2. **Fix symlinks** (required once after cloning — the committed symlinks point to the original author's machine):
+   ```bash
+   uv run .ai-workspace/scripts/transpile-commands.py
+   uv run .ai-workspace/scripts/transpile-skills.py
+   ```
+
+3. **Clone your repo** into the `repositories/` folder:
    ```bash
    cd repositories/
    git clone <your-repo-url>
+   cd ..
    ```
 
-2. **Start your AI tool** in the workspace root:
+4. **Start your AI tool** in the workspace root:
 
    | Tool | How to start |
    |---|---|
    | Claude Code | Run `claude` in the terminal |
    | Cursor | Open the workspace folder in Cursor |
 
-3. **Tell the AI which repo to focus on** — e.g., "work on site-analysis" or "I'm working on repositories/my-project."
+5. **Tell the AI which repo to focus on** — e.g., "work on site-analysis" or "I'm working on repositories/my-project."
 
-4. **Type `/toolkit`** to see what's available and get recommendations based on your current repo.
+6. **Type `/toolkit`** to see what's available and get recommendations based on your current repo.
 
 That's it. Everything else activates automatically as you work.
 
@@ -114,7 +128,7 @@ Type the command name in the chat to run it. Commands work the same in both Clau
 | /explain-code | Explain code from high-level to line-by-line, scaled to complexity | Purpose, structure, data flow, gotchas for a pipeline file | Reads imports, call patterns, and usage to build layered explanation. |
 | /prompt-test | Test LLM prompts against sample inputs, catch regressions | Runs prompt with 3 inputs, flags hallucinations on sparse data | Calls the prompt function, optionally calls the LLM, evaluates output quality. |
 | /architecture-docs | Generate architecture docs with Mermaid diagrams | System overview, data flow, design decisions | Scans project structure, traces data flow, generates markdown with diagrams. |
-| /visualize | Interactive HTML project map with file tree | Color-coded by language, file sizes, breakdown chart | Scans all files, collects metadata, generates standalone HTML with inline JS/CSS. |
+| /visualize | Mermaid flow diagram of project architecture | `flowchart LR` showing pipeline stages and data flow | Reads codebase, identifies main flow, outputs `.mmd` file. |
 
 ---
 
