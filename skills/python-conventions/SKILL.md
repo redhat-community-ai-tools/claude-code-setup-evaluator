@@ -1,7 +1,7 @@
 ---
 name: python-conventions
 version: "1.0"
-description: Team-specific Python conventions — credential management with dotenv, TDD workflow, and testing patterns for data pipelines.
+description: Team-specific Python conventions — credential management with dotenv, API client rules, LLM response parsing, TDD workflow, and testing patterns for data pipelines.
 ---
 
 # Python Conventions — Team Patterns
@@ -11,6 +11,8 @@ description: Team-specific Python conventions — credential management with dot
 - When writing code that uses environment variables or credentials
 - When creating or modifying `.env` files
 - When writing tests or following TDD
+- When building or modifying code that calls external APIs (Jira, Gemini, LDAP)
+- When reviewing code that handles HTTP responses or LLM output
 
 ## Credential Management
 
@@ -40,6 +42,51 @@ model_name = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 - **Always** create `.env.example` with placeholders, add `.env` to `.gitignore`
 - **Load early** — `load_dotenv()` at entry points, not deep in utility code
 - **Validate required vars** — fail fast if missing
+
+## API Clients
+
+Claude already knows retry logic, pagination, and auth patterns. These are team-specific rules:
+
+1. **Always set timeouts** — no request should hang indefinitely (`timeout=30`)
+2. **Retry transient failures only** — 429, 500, 502, 503, 504, connection errors
+3. **Don't retry permanent failures** — 400, 401, 403, 404, 422
+4. **Validate responses before accessing fields** — check structure, not just status code
+5. **Log method, URL (without secrets), status code, duration** — never log full response bodies
+
+### LLM Response Parsing
+
+LLM outputs often include markdown fences that break JSON parsing. Always clean before parsing:
+
+```python
+import json
+
+def clean_llm_response(text):
+    for prefix in ("```markdown", "```json", "```"):
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+    if text.endswith("```"):
+        text = text[:-3].strip()
+    return text
+
+def parse_llm_json(text):
+    text = clean_llm_response(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        logging.error(f"LLM returned invalid JSON: {text[:200]}")
+        return None
+```
+
+### API Anti-Patterns
+
+| Anti-Pattern | Do This Instead |
+|-------------|-----------------|
+| No timeout on requests | Always `timeout=30` |
+| Retrying 401/403 | Only retry transient errors |
+| `verify=False` | Fix the cert or use proper CA bundle |
+| Logging full responses | Log status code + item count only |
+| String concatenation for URLs | Use `urllib.parse.urljoin` or params dict |
+| Catching all exceptions | Catch specific: `requests.exceptions.*` |
 
 ## Testing
 
