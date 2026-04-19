@@ -1,1 +1,0 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/visualize/command.md
