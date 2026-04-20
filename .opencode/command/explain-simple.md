@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/explain-simple/command.md
+../../commands/explain-simple/command.md

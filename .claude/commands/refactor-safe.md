@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/refactor-safe/command.md
+../../commands/refactor-safe/command.md

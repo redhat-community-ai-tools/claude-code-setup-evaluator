@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/recap/command.md
+../../commands/recap/command.md

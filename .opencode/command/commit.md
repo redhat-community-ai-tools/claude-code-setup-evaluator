@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/commit/command.md
+../../commands/commit/command.md

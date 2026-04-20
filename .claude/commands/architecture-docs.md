@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/architecture-docs/command.md
+../../commands/architecture-docs/command.md

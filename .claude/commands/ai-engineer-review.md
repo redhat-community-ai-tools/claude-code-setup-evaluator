@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/ai-engineer-review/command.md
+../../commands/ai-engineer-review/command.md

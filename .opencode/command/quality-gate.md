@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/quality-gate/command.md
+../../commands/quality-gate/command.md

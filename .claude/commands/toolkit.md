@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/toolkit/command.md
+../../commands/toolkit/command.md

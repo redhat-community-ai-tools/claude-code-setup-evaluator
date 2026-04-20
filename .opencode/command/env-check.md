@@ -1,1 +1,1 @@
-/home/bkapner/AI-workspace-ds/ai-workspace-template-ds/commands/env-check/command.md
+../../commands/env-check/command.md

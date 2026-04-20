@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -166,7 +167,7 @@ def validate_commands(base_dir: Path) -> tuple[list[Command], list[str]]:
 
 
 def create_symlink(source: Path, target: Path) -> str:
-    """Create or update a symlink. Returns status."""
+    """Create or update a symlink using a relative path. Returns status."""
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.is_symlink():
@@ -176,7 +177,8 @@ def create_symlink(source: Path, target: Path) -> str:
     elif target.exists():
         return "skipped (not a symlink)"
 
-    target.symlink_to(source.resolve())
+    rel_path = os.path.relpath(source, target.parent)
+    target.symlink_to(rel_path)
     return "created"
 
 
