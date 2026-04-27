@@ -14,4 +14,7 @@ dev = [
     "zensical>=0.0.21",
     "pre-commit>=4.3.0",
     "pytest>=9.0.1",
+    "click>=8.0",
+    "httpx>=0.24",
+    "python-dotenv>=1.0",
 ]
