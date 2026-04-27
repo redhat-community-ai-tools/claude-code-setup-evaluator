@@ -1,11 +1,17 @@
 ## Team
 
-Data Science team at Red Hat. This workspace is a pilot for standardizing how we use Claude Code across the team.
+Data Science team at Red Hat. This workspace standardizes how we use AI coding assistants across the team.
 
 ## Repositories
 
-- `repositories/ai-initiatives-observer/` — Pipeline that discovers AI-related work across the org by analyzing Jira tickets. Python, Gemini API.
-- `repositories/site-analysis/` — People & expertise discovery pipeline for geographic sites. Analyzes Jira activity to generate per-person work profiles. Python, Gemini API.
+Each team member clones the repos they work on into `repositories/`. This folder is gitignored — repos are personal, not shared. Common team repos include:
+
+- `ai-initiatives-observer` — Pipeline that discovers AI-related work across the org by analyzing Jira tickets. Python, Gemini API.
+- `site-analysis` — People & expertise discovery pipeline for geographic sites. Analyzes Jira activity to generate per-person work profiles. Python, Gemini API.
+- `igloo-mcp` — MCP server for The Source (Igloo) intranet integration. Python.
+- `il-agent` — Israel site agent service. Python.
+
+Use `/focus` to select which repo(s) to work on in a session.
 
 ## Conventions (all repos)
 
