@@ -62,22 +62,22 @@ fi
 # SKILL SUGGEST HOOK TESTS
 # ============================================================
 
-# Test 4: Python file → python-patterns
+# Test 4: Python file → python-conventions
 export CLAUDE_TOOL_INPUT='{"file_path": "/home/user/main.py"}'
 OUTPUT=$(bash "$PROJECT_DIR/.ai-workspace/scripts/skill-suggest.sh" 2>&1)
-if echo "$OUTPUT" | grep -q "python-patterns"; then
-    pass "Skill suggest: .py → python-patterns"
+if echo "$OUTPUT" | grep -q "python-conventions"; then
+    pass "Skill suggest: .py → python-conventions"
 else
-    fail "Skill suggest: .py → python-patterns" "Got: $OUTPUT"
+    fail "Skill suggest: .py → python-conventions" "Got: $OUTPUT"
 fi
 
-# Test 5: Test file → python-testing (not python-patterns)
+# Test 5: Test file → python-conventions
 export CLAUDE_TOOL_INPUT='{"file_path": "/home/user/tests/test_main.py"}'
 OUTPUT=$(bash "$PROJECT_DIR/.ai-workspace/scripts/skill-suggest.sh" 2>&1)
-if echo "$OUTPUT" | grep -q "python-testing" && ! echo "$OUTPUT" | grep -q "python-patterns"; then
-    pass "Skill suggest: test file → python-testing only"
+if echo "$OUTPUT" | grep -q "python-conventions"; then
+    pass "Skill suggest: test file → python-conventions"
 else
-    fail "Skill suggest: test file → python-testing only" "Got: $OUTPUT"
+    fail "Skill suggest: test file → python-conventions" "Got: $OUTPUT"
 fi
 
 # Test 6: .env file → security-check
