@@ -92,16 +92,16 @@ digraph process {
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Use the least powerful model that can handle each role.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast model. Most implementation tasks are mechanical when the plan is well-specified.
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
 
 **Architecture, design, and review tasks**: use the most capable available model.
 
 **Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
+- Touches 1-2 files with a complete spec → fast model
 - Touches multiple files with integration concerns → standard model
 - Requires design judgment or broad codebase understanding → most capable model
 
@@ -231,11 +231,11 @@ Done!
 - Spec compliance prevents over/under-building
 - Code quality ensures implementation is well-built
 
-**Cost:**
+**Tradeoffs:**
 - More subagent invocations (implementer + 2 reviewers per task)
 - Controller does more prep work (extracting all tasks upfront)
 - Review loops add iterations
-- But catches issues early (cheaper than debugging later)
+- But catches issues early (less rework later)
 
 ## Red Flags
 
