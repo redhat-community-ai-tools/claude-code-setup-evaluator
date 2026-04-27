@@ -90,17 +90,9 @@ For each changed file (`git diff --name-only HEAD`), check:
 
 ### Phase 6: Pre-Push Security
 
+Run the **security-check** skill (Steps 1-3) for secret scanning and .gitignore verification. Then run pre-commit:
+
 ```bash
-# Secret patterns
-grep -rn --include="*.py" --include="*.yaml" --include="*.json" \
-  -E "(AIzaSy|sk-[a-zA-Z0-9]{20,}|sk-ant-|ATATT3x|AKIA|ghp_|hf_)" \
-  --exclude-dir=.git --exclude-dir=__pycache__ --exclude-dir=.venv \
-  --exclude=".env*" . 2>/dev/null
-
-# .gitignore check
-git ls-files | grep -E "\.env|credentials|secret|\.key|\.pem"
-
-# Pre-commit hooks
 uv run pre-commit run --all-files 2>/dev/null
 ```
 
