@@ -77,8 +77,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Claude Code personal memory (per-user, not shared)
+# Claude Code personal data (per-user, not shared)
 .claude/projects/
+.claude/settings.local.json
 
 # Editors / IDEs
 .idea/
