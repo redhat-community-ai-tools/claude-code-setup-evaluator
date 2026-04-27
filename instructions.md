@@ -6,12 +6,14 @@ Welcome! This workspace gives you superpowers when working with AI coding assist
 
 ## Setup
 
-1. **Clone the workspace** and install dependencies:
+1. **Clone the workspace**, install dependencies, and run setup:
    ```bash
-   git clone git@gitlab.cee.redhat.com:bkapner/ai-workspace-template-ds.git
+   git clone <workspace-repo-url>
    cd ai-workspace-template-ds
    uv sync
+   uv run .ai-workspace/scripts/setup.py
    ```
+   Setup installs pre-commit hooks and validates the workspace. Safe to re-run.
 
 2. **Clone your repo** into the `repositories/` folder:
    ```bash
@@ -104,7 +106,7 @@ Type the command name in the chat to run it. Commands work the same in both Clau
 
 | Name | Purpose | Example | How it works backstage |
 |---|---|---|---|
-| /plan | Restate requirements, identify risks, create step-by-step plan. Waits for OK before coding | "Add retry logic to the pipeline" — proposes a plan, waits for approval | Loads the command markdown (~387 words) into context only when invoked. Zero cost until you type it. |
+| /plan | Restate requirements, identify risks, create step-by-step plan. Waits for OK before coding | "Add retry logic to the pipeline" — proposes a plan, waits for approval | Loads the command markdown (~387 words) into context only when invoked. |
 | /verify | Run environment, types, lint, tests | After coding — catch type errors and failing tests | Invokes the verification-loop skill, runs phases 1-4. Exits after tests. |
 | /review | Code review with security and DS anti-pattern checks | Checks for bare excepts, data leakage, long functions | Invokes verification-loop phase 5 only. Produces APPROVE or REQUEST CHANGES. |
 | /quality-gate | Pre-push safety check: tests + secret scan + pre-commit | Before pushing — confirms no secrets leaked, tests pass | Invokes verification-loop phases 1-4 + 6. Skips code review. |
@@ -135,6 +137,18 @@ The AI spawns these as sub-processes for parallel or specialized work.
 | general-purpose | Handle multi-step research or complex tasks autonomously | Yes — dedicated agent type | Yes — background agent |
 
 ---
+
+---
+
+## Credential Hygiene
+
+Claude Code accumulates permission entries in `.claude/settings.local.json` as you approve commands. If you approve a `curl` command with a token in it, that token gets saved in plaintext on disk. This file is gitignored, but the habit is still dangerous.
+
+**Rules:**
+- **Never approve curl commands with inline tokens.** Instead, use environment variables: `curl -H "Authorization: Bearer $MY_TOKEN"` not `curl -H "Authorization: Bearer ghp_abc123..."`.
+- **Periodically clean your settings.local.json.** Search for `PRIVATE-TOKEN`, `Bearer`, or `Authorization` and remove any entries with real tokens. Replace with the broad `"Bash(curl *)"` permission.
+- **Rotate tokens if they've been in settings.local.json.** Treat any token that was saved in plaintext as potentially compromised.
+- **The secret scan hook only protects git.** It blocks commits/pushes with API key patterns in tracked files, but it doesn't prevent tokens from landing in untracked local config files.
 
 ---
 
