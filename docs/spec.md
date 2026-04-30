@@ -15,7 +15,7 @@ It works in three layers, each going deeper than the last:
 
 **Layer 1 — Count and check (rule engine, no AI).** A pluggable rule engine scans your skill files and runs mechanical checks. Each check is a self-contained rule — its own file, its own test, registered in a central registry. Out of the box, the engine ships with rules for token counting, near-duplicate detection, broken file references, format validation, missing descriptions, and security scanning (prompt injection, credential exposure). You can configure which rules run via presets (`recommended`, `strict`, `security`) or override individual rules in a `.evaluator.yaml` config file. No AI involved — just parsing and math. Outputs a JSON report with per-rule diagnostics.
 
-**Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against a structured rubric. Each skill is scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality) with a 1-5 rating and a one-sentence justification per dimension. Across the setup: should some skills be merged? Should any skill be a command instead (or vice versa)? Does CLAUDE.md duplicate or conflict with skills? Is the total context budget reasonable?
+**Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against structured rubrics. Skills are scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality). CLAUDE.md is scored on its own rubric (conciseness, signal-to-noise, skill separation, structure, conflict-free) based on [official Claude Code best practices](https://code.claude.com/docs/en/best-practices). Commands are scored on description quality, instruction clarity, script integrity, scope, and token efficiency. Each dimension gets a 1-5 rating and a one-sentence justification. Single-skill mode evaluates one skill in context of the full setup — detecting overlaps, conflicts, and redundancy with other skills and CLAUDE.md. Across the setup: should some skills be merged? Should any skill be a command instead (or vice versa)? Is the total context budget reasonable?
 
 **Layer 3 — A/B experiment (optional).** Gemini generates test tasks from each skill's description. The Claude API runs those tasks twice — once with the skill loaded, once without. Then Gemini judges which output was better using repeat-and-vote (3 judge calls per pair, majority wins) for reliable verdicts. For preventive skills ("never commit secrets"), a red-team mode generates adversarial tasks designed to break the skill's rules instead.
 
@@ -210,6 +210,10 @@ The user types `/evaluate-setup` inside Claude Code with optional arguments:
 /evaluate-setup ~/.claude/skills/
   Check all skills. Layers 1+2. Recommended preset.
 
+/evaluate-setup ~/.claude/skills/python-error-handling/
+  Single-skill mode. Scans ALL skills for context (duplicates, overlaps)
+  but focuses the report on this one skill. Layers 1+2.
+
 /evaluate-setup ~/.claude/skills/ --preset strict
   Check all skills with stricter rules (style, optimization, token efficiency).
 
@@ -220,9 +224,6 @@ The user types `/evaluate-setup` inside Claude Code with optional arguments:
   Check all skills, then auto-fix trivial issues (missing "Use when" prefix,
   formatting). Everything else is recommendations only.
 
-/evaluate-setup ~/.claude/skills/python-error-handling/
-  Check just one skill. Layers 1+2.
-
 /evaluate-setup ~/.claude/ --deep
   Full evaluation with A/B testing (standard mode).
 
@@ -231,16 +232,27 @@ The user types `/evaluate-setup` inside Claude Code with optional arguments:
 
 /evaluate-setup ~/.claude/ --deep --red-team
   Full evaluation with adversarial testing for preventive skills.
+
+/evaluate-setup --claude-md
+  Evaluate CLAUDE.md files (project and user level) against best practices.
+
+/evaluate-setup --commands
+  Evaluate all command.md files.
+
+/evaluate-setup --all
+  Evaluate everything: skills + CLAUDE.md + commands.
 ```
 
 Natural language works too. The command prompt tells Claude to handle things like:
-- "evaluate my setup"
-- "is my python-error-handling skill any good?"
+- "evaluate my setup" (same as `--all`)
+- "is my python-error-handling skill any good?" (single-skill mode)
 - "which of my skills should I remove?"
 - "run the deep test on react-helper"
 - "run a security audit on my skills"
 - "fix the formatting issues in my skills"
 - "red-team my security skills"
+- "evaluate my CLAUDE.md"
+- "are my commands well-structured?"
 
 ### 4.2 What the user sees
 
@@ -878,6 +890,145 @@ Inspired by [deepeval](https://github.com/confident-ai/deepeval)'s approach of r
 
 This rubric replaces the previous unstructured star rating. The criteria (A through E above) remain as the detailed evaluation guide — the rubric dimensions are how those criteria translate into scores.
 
+#### 5.3.2 Single-skill mode
+
+When the user points `/evaluate-setup` at a single skill (e.g., `/evaluate-setup skills/python-conventions/`), the tool still loads the full setup as context but focuses the report on that one skill.
+
+**How it works:**
+
+1. **Layer 1** scans ALL skills in the parent directory (not just the target) — this is necessary for duplicate detection and overlap analysis. The JSON output includes all skills' data but marks the target skill.
+2. **Layer 2** reads ALL skills + CLAUDE.md + commands, but the rubric report focuses on the target skill with explicit comparisons:
+   - "This skill overlaps with data-pipeline-patterns on API client rules"
+   - "No conflicts detected with CLAUDE.md"
+   - "Trigger description overlaps with security-check's trigger"
+3. **Layer 3** (if `--deep`) runs A/B testing only on the target skill.
+
+**CLI change:** `static_analyze.py` gets a `--target` flag:
+
+```bash
+uv run --project scripts/evaluate-setup evaluate-setup scan skills/ --target python-conventions
+```
+
+This scans all skills under `skills/` but filters the output to show diagnostics only for `python-conventions`, while still using all other skills' data for duplicate detection and overlap analysis.
+
+**Example output:**
+
+```
+## Single-Skill Review: python-conventions
+
+### python-conventions                         ★★★★    KEEP
+  Tokens: 1,027
+
+  Rubric:
+    Specificity:      5/5  Complete code examples for dotenv, LLM JSON parsing
+    Redundancy:       4/5  "Test behavior not internals" overlaps Claude's defaults
+    Trigger quality:  3/5  Description doesn't start with "Use when"
+    Token efficiency: 4/5  1,027 tokens — some overlap with data-pipeline-patterns
+    Content quality:  5/5  Code examples for every pattern, anti-pattern table
+
+  Context analysis:
+    vs data-pipeline-patterns:  Minor overlap on API client rules (not a merge candidate — different scopes)
+    vs security-check:          No overlap
+    vs CLAUDE.md:               No duplication or conflicts detected
+    Trigger overlap:            None — descriptions target different task types
+```
+
+#### 5.3.3 CLAUDE.md evaluation
+
+When the user runs `/evaluate-setup --claude-md` or `/evaluate-setup --all`, the tool evaluates CLAUDE.md files against [Claude Code best practices](https://code.claude.com/docs/en/best-practices).
+
+CLAUDE.md is loaded every session, so it has a different evaluation model than skills (which load on demand). The key question isn't "is this specific enough?" but "does every line earn its place in every conversation?"
+
+**CLAUDE.md rubric dimensions:**
+
+| Dimension | Weight | 1 (worst) | 3 (acceptable) | 5 (best) |
+|---|---|---|---|---|
+| **Conciseness** | 0.25 | >500 lines, wall of text with tutorials and explanations | 100-300 lines, some padding that could be trimmed | Under 100 lines, every line passes the "would removing this cause mistakes?" test |
+| **Signal-to-noise** | 0.25 | Full of generic advice Claude already follows ("write clean code", "be helpful") | Mix of useful rules and self-evident advice | Only contains things Claude can't figure out from code — bash commands, non-obvious conventions, project-specific rules |
+| **Skill separation** | 0.20 | Domain-specific rules that should be skills are embedded in CLAUDE.md, loading every session | Some topic-specific content that could be a skill but isn't critical to move | All domain-specific knowledge is in skills; CLAUDE.md only has universally-applicable rules |
+| **Structure** | 0.15 | Unstructured wall of text, no sections, no priorities | Has sections but unclear hierarchy, instructions easy to miss | Clear sections, critical rules marked with emphasis ("IMPORTANT", "YOU MUST"), scannable |
+| **Conflict-free** | 0.15 | Contradicts multiple skills (e.g., CLAUDE.md says "use unittest", skill says "use pytest") | No direct contradictions but some ambiguous overlap | No contradictions with any skill; complementary content only |
+
+**Source:** These dimensions are based on Anthropic's official guidance:
+- "Keep it short and human-readable" — conciseness
+- "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not, cut it" — signal-to-noise
+- "For domain knowledge or workflows that are only relevant sometimes, use skills instead" — skill separation
+- "Bloated CLAUDE.md files cause Claude to ignore your actual instructions" — overall rationale
+- Include/exclude table from official docs: exclude "standard language conventions Claude already knows", "self-evident practices like 'write clean code'"
+
+**What the tool checks mechanically (Layer 1):**
+
+- Line count and token count
+- Duplicate content detection against all loaded skills (TF-IDF similarity)
+- Conflict detection: scan for contradictory instructions between CLAUDE.md and skills
+- Structural checks: does it have sections? Are any sections excessively long?
+- Generic advice detection: flag known-redundant phrases ("write clean code", "be helpful", "follow best practices")
+
+**Example output:**
+
+```
+### CLAUDE.md (project)                        ★★★★    KEEP
+  Lines: 187 | Tokens: 2,400
+
+  Rubric:
+    Conciseness:      4/5  187 lines — reasonable but the "Available Skills" listing adds 30 lines that could be auto-generated
+    Signal-to-noise:  5/5  No generic advice — all instructions are project-specific (uv, pre-commit, repo conventions)
+    Skill separation: 4/5  Convention rules in "Conventions (all repos)" section are universally applicable — correct placement
+    Structure:        5/5  Clear sections with headers, critical requirements marked in a dedicated block
+    Conflict-free:    5/5  No contradictions with any skill
+
+  + Critical Requirements section ensures key rules aren't missed
+  + Repo-specific conventions (branch naming, Jira tracking) belong here, not in skills
+  ! "Available Skills" section could be auto-generated rather than manually maintained
+```
+
+#### 5.3.4 Command evaluation
+
+When the user runs `/evaluate-setup --commands` or `/evaluate-setup --all`, the tool evaluates command.md files.
+
+Commands are user-triggered workflows (invoked via `/command-name`). They have different quality criteria than skills — a command needs clear instructions for Claude to follow, a valid description for the UI menu, and working script references.
+
+**Command rubric dimensions:**
+
+| Dimension | Weight | 1 (worst) | 3 (acceptable) | 5 (best) |
+|---|---|---|---|---|
+| **Description quality** | 0.25 | Missing or vague description that doesn't help the user decide when to use the command | Description exists but could be more specific about what the command does | Clear, concise description that tells the user exactly what the command does and when to use it |
+| **Instruction clarity** | 0.25 | Vague instructions, Claude has to guess what to do | Instructions are reasonable but some steps are ambiguous or missing | Every step is clear and specific, Claude knows exactly what to do, in what order, with what output format |
+| **Script integrity** | 0.20 | References scripts that don't exist, broken discovery patterns | Scripts exist but discovery pattern is fragile (hardcoded paths) | Scripts exist, discovery pattern is robust (relative paths, fallbacks), script runs without errors |
+| **Scope appropriateness** | 0.15 | Should be a skill (describes passive behavior, not a user-triggered workflow) | Reasonable as a command but could overlap with an existing skill or command | Clearly a user-triggered workflow, no overlap with skills or other commands |
+| **Token efficiency** | 0.15 | Bloated instructions with excessive examples or redundant steps | Reasonable length with some padding | Concise instructions, every section earns its place |
+
+**What the tool checks mechanically (Layer 1):**
+
+- Frontmatter validation: `description` field present and non-empty
+- Script reference validation: if the command references a `.py` script, check it exists
+- Token count
+- Duplicate detection against other commands (similar descriptions or instructions)
+
+**Example output:**
+
+```
+### /evaluate                                  ★★★★★   KEEP
+  Tokens: 2,100
+
+  Rubric:
+    Description:      5/5  "Run evaluation questions against your AI bot/agent and compare results across versions"
+    Instruction clarity: 5/5  Clear 4-step workflow with auto-discovery, version tracking, diff comparison
+    Script integrity: 5/5  runner.py exists, discovery pattern with readlink + find fallback
+    Scope:            5/5  User-triggered workflow — not something Claude should auto-invoke
+    Token efficiency: 4/5  2,100 tokens — thorough but the auto-discovery grep patterns could be shorter
+
+### /plan                                      ★★★★    KEEP
+  Tokens: 450
+
+  Rubric:
+    Description:      5/5  Clear one-liner
+    Instruction clarity: 4/5  References brainstorming + writing-plans skills but doesn't specify the handoff clearly
+    Script integrity: 5/5  No script references — pure prompt command
+    Scope:            5/5  User-triggered planning workflow
+    Token efficiency: 5/5  450 tokens, concise
+```
+
 **F. Setup-wide recommendations** — Beyond grading individual skills, look at the whole setup and suggest structural improvements.
 
 - **Merge candidates.** Two or more skills that cover closely related topics and would be stronger as a single, well-organized skill. Example: `python-error-handling` and `python-logging` could become one `python-reliability` skill if they're both short and always trigger together.
@@ -1123,10 +1274,18 @@ The prompt instructs Claude to orchestrate the layers:
 ### 6.1 What v1 includes
 
 - Evaluating Claude Code **skills**, **commands**, and **CLAUDE.md** files
-- Scope selection: single skill or command, a folder, or entire `~/.claude/` setup
+- **Scope modes:**
+  - Full setup scan (`--all` or no flag): evaluate all skills + CLAUDE.md + commands
+  - Skills only: evaluate all skills in a directory
+  - Single-skill mode: evaluate one skill in context of the full setup (loads all skills + CLAUDE.md + commands for overlap/conflict detection, focuses report on the target)
+  - CLAUDE.md only (`--claude-md`): evaluate CLAUDE.md against best practices
+  - Commands only (`--commands`): evaluate all command.md files
 - **Layer 1:** pluggable rule engine with 9 initial rules across 5 categories (structural, frontmatter, content, security, best practices)
 - **Layer 1 extras:** config presets (recommended/strict/security), `.evaluator.yaml` per-rule overrides, inline suppression comments, auto-fix for trivial issues (`--fix`)
-- **Layer 2:** structured rubric scoring (5 dimensions, 1-5 each, weighted average for star rating, one-sentence reasoning per dimension), setup-wide recommendations (merge candidates, skill/command conversion, CLAUDE.md review, overlapping triggers, coverage gaps, total context budget)
+- **Layer 2 skills rubric:** 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality), 1-5 scoring with anchors, weighted average for star rating, one-sentence reasoning per dimension
+- **Layer 2 CLAUDE.md rubric:** 5 dimensions (conciseness, signal-to-noise, skill separation, structure, conflict-free), based on official Claude Code best practices
+- **Layer 2 commands rubric:** 5 dimensions (description quality, instruction clarity, script integrity, scope appropriateness, token efficiency)
+- **Layer 2 setup-wide recommendations:** merge candidates, skill/command conversion, overlapping triggers, coverage gaps, total context budget
 - **Layer 3 standard (optional):** A/B evaluation with Gemini-generated tasks, Claude API execution, Gemini blind judging with repeat-and-vote (3 votes per pair, majority wins, confidence levels)
 - **Layer 3 red-team (optional):** adversarial testing for preventive skills — Gemini generates attack tasks, judges whether skill held/broke/partial
 - Read-only by default — `--fix` is opt-in and only corrects formatting
