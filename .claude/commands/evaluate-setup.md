@@ -1,0 +1,1 @@
+../../commands/evaluate-setup/command.md
