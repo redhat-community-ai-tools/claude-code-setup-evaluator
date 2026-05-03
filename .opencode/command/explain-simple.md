@@ -1,1 +1,0 @@
-../../commands/explain-simple/command.md

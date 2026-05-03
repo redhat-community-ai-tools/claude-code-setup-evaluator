@@ -1,1 +1,0 @@
-../../commands/plan/command.md

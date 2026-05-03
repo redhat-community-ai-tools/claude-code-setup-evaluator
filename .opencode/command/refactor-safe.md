@@ -1,1 +1,0 @@
-../../commands/refactor-safe/command.md

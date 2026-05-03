@@ -1,1 +1,0 @@
-../../commands/prompt-test/command.md

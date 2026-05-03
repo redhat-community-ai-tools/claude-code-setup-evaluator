@@ -1,1 +1,0 @@
-../../commands/env-check/command.md

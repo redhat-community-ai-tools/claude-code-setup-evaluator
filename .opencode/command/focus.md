@@ -1,1 +1,0 @@
-../../commands/focus/command.md

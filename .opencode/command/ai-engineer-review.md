@@ -1,1 +1,0 @@
-../../commands/ai-engineer-review/command.md

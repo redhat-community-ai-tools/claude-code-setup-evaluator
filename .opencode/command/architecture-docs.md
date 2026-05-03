@@ -1,1 +1,0 @@
-../../commands/architecture-docs/command.md
