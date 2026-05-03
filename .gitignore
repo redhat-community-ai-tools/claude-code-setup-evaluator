@@ -86,6 +86,17 @@ cython_debug/
 .vscode/
 
 # -------------------------------------------------------------------
+# Non-Claude tool directories (kept on multi-tool branch only)
+# -------------------------------------------------------------------
+.cursor/
+.gemini/
+.opencode/
+AGENTS.md
+AGENTS.project.md
+instructions.md
+agent-tools.yaml
+
+# -------------------------------------------------------------------
 # ai-workspace-template specific
 # -------------------------------------------------------------------
 
