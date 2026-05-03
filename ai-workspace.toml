@@ -9,16 +9,10 @@ commands = true
 agent_docs = true
 
 [distribution]
-# Target directories for skills symlinks
-skills_paths = [
-    ".opencode/skill",
-]
-
-# Target directories for commands (all use symlink by default)
+# Target directories for commands
 commands_paths = [
     ".claude/commands",
     ".cursor/commands",
-    ".opencode/command",
 ]
 
 # Override distribution method for specific paths

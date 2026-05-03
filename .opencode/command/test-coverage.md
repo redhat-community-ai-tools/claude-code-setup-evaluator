@@ -1,1 +1,0 @@
-../../commands/test-coverage/command.md

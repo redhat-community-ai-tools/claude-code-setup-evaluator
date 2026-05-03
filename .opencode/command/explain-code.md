@@ -1,1 +1,0 @@
-../../commands/explain-code/command.md

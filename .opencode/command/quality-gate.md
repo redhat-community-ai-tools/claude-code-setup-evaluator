@@ -1,1 +1,0 @@
-../../commands/quality-gate/command.md

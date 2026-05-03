@@ -1,86 +1,58 @@
-# Claude Code Setup Evaluator
+# Claude Code Setup Evaluator — Multi-Tool Branch
 
-A meta-workspace for Claude Code with a built-in 3-layer evaluator for your setup. Analyze your skills, commands, CLAUDE.md, and hooks for quality, redundancy, and optimization opportunities.
+A workspace for **Claude Code** and **Cursor** users who work across multiple repositories. Clone your repos, get shared skills and commands out of the box, add your own — and use `/evaluate-setup` to make sure your setup is actually helping.
 
-## What This Does
+> This is the `multi-tool` branch with Claude Code + Cursor support. For Claude Code only, see the [`main`](../../tree/main) branch.
 
-Most Claude Code users accumulate skills, commands, and configuration over time — but never check if they're actually helping. This workspace gives you:
+## How It Works
 
-- **`/evaluate-setup`** — A 3-layer evaluation command that scores your entire Claude Code setup
-- **17 slash commands** — `/plan`, `/verify`, `/review`, `/commit`, `/evaluate-setup`, and more
-- **6 built-in skills** — Security checks, Python conventions, pipeline patterns, TDD workflows
-- **Cross-repo workspace** — Work across multiple repositories with shared AI capabilities
+This is a **meta-workspace**. You clone your project repositories into the `repositories/` folder and start your AI tool from the workspace root. Both tools automatically get access to all skills and commands. Your repos stay independent — they push to their own remotes, the workspace never touches them.
 
-## The Evaluator (`/evaluate-setup`)
-
-The core feature. Run `/evaluate-setup` in Claude Code and it evaluates your entire setup:
-
-### Layer 1: Static Analysis (automated)
-A rule engine with 15 pluggable rules scans your files for mechanical issues:
-- Missing descriptions, broken file references, token budget violations
-- Prompt injection patterns, credential access attempts
-- Duplicate content detection across skills
-- Command script integrity, CLAUDE.md bloat, dangerous hook patterns
-
-### Layer 2: AI-Powered Review (Claude as judge)
-Claude scores each item on a structured rubric (5 dimensions, 1-5 scale):
-- **Skills**: specificity, redundancy, trigger quality, token efficiency, content quality
-- **Commands**: description quality, instruction clarity, script integrity, scope, efficiency
-- **CLAUDE.md**: conciseness, signal-to-noise, skill separation, structure, conflicts
-- Cross-type optimization suggestions (e.g., "this skill should be a hook")
-
-### Layer 3: A/B Testing (optional, `--deep`)
-Tests whether your skills actually change Claude's behavior:
-- Generates tasks, runs Claude with and without each skill, judges the difference
-- Repeat-and-vote: 3 judge calls per comparison for reliability
-- Red-team mode (`--deep --red-team`): adversarial testing for preventive skills
+```
+claude-code-setup-evaluator/
+  repositories/           # Clone your repos here (gitignored — yours, not shared)
+  skills/                 # AI skills — activate automatically when relevant
+  commands/               # Slash commands — you trigger with /command
+  .claude/                # Claude Code hooks and config
+  .cursor/                # Cursor rules and commands
+```
 
 ## Quick Start
 
 ```bash
-# Clone the workspace
-git clone https://github.com/redhat-community-ai-tools/claude-code-setup-evaluator.git
+git clone -b multi-tool https://github.com/redhat-community-ai-tools/claude-code-setup-evaluator.git
 cd claude-code-setup-evaluator
-
-# Install dependencies and set up hooks
 uv sync
 uv run .ai-workspace/scripts/setup.py
 
-# Clone your repos into the workspace
+# Clone your repos
 cd repositories/
 git clone <your-repo-url>
 cd ..
-
-# Start Claude Code
-claude
 ```
 
-Then run `/evaluate-setup` to evaluate your setup, or start working with the built-in commands.
+Then start your tool:
 
-## Commands
+| Tool | How to start |
+|------|-------------|
+| **Claude Code** | Run `claude` in the terminal |
+| **Cursor** | Open the workspace folder in Cursor |
 
-| Command | What it does |
-|---------|-------------|
-| `/evaluate-setup` | Evaluate your Claude Code setup (skills, commands, CLAUDE.md, hooks) |
-| `/plan` | Design approach before coding, wait for approval |
-| `/verify` | Check types, lint, and tests |
-| `/review` | Code review with security checks |
-| `/quality-gate` | Pre-push safety check (tests + secret scan) |
-| `/commit` | Generate commit message, preview, approve |
-| `/refactor-safe` | Refactor internals without changing public API |
-| `/test-coverage` | Find untested code, generate missing tests |
-| `/diff-explain` | Explain changes by intent, not file count |
-| `/explain-code` | Layered code explanation scaled to complexity |
-| `/explain-simple` | Explain code in plain language |
-| `/prompt-test` | Test LLM prompts against sample inputs |
-| `/ai-engineer-review` | Brutally honest architecture review |
-| `/architecture-docs` | Generate architecture docs with Mermaid diagrams |
-| `/env-check` | Validate local environment setup |
-| `/recap` | Summarize session for standup |
-| `/focus` | Switch repo focus mid-session |
-| `/toolkit` | Show available capabilities |
+## Claude Code vs Cursor — What's Different
 
-## Skills (activate automatically)
+Both tools get the same skills and commands, but the underlying mechanisms differ:
+
+| Capability | Claude Code | Cursor |
+|------------|------------|--------|
+| **Skills** | `skills/*/SKILL.md` — loaded by Claude when relevant | `.cursor/rules/*.mdc` — some auto-attach by file type, others picked by description |
+| **Commands** | `.claude/commands/*.md` — type `/command` in chat | `.cursor/commands/*.md` — type `/command` in chat |
+| **Session start hook** | Reports git status of all repos | Reports git status of all repos |
+| **Secret scan hook** | Blocks `git commit`/`push` if API keys detected | Not available — run `/quality-gate` manually before pushing |
+| **Skill suggestion hook** | Reminds Claude which skills match your current files | Partial — rules with `globs` auto-attach when matching files are open |
+
+## What You Get
+
+### Skills (activate automatically)
 
 | Skill | What it does |
 |-------|-------------|
@@ -91,69 +63,58 @@ Then run `/evaluate-setup` to evaluate your setup, or start working with the bui
 | `brainstorming` | Design exploration before implementation |
 | `writing-plans` | Creates implementation plans from approved specs |
 
-> **Note:** `skills/clean-code-guide` and `commands/check-code` are intentionally low-quality examples included for testing the evaluator. Run `/evaluate-setup` to see how they get flagged.
+### Commands (you trigger these)
 
-## Project Structure
+| Command | When to use | What it does |
+|---------|-------------|-------------|
+| `/evaluate-setup` | Anytime | Evaluate your entire setup (skills, commands, CLAUDE.md, hooks) |
+| `/plan` | Before coding | Design approach, wait for your OK |
+| `/verify` | After coding | Check types, lint, tests |
+| `/review` | Before pushing | Code review with security checks |
+| `/quality-gate` | Before `git push` | Tests + secret scan |
+| `/commit` | Ready to commit | Generate message, preview, approve |
+| `/refactor-safe` | After review | Refactor without changing public API |
+| `/test-coverage` | Adding tests | Find untested code, generate tests |
+| `/diff-explain` | Reviewing changes | Explain by intent, not file count |
+| `/explain-code` | Unfamiliar code | Layered explanation scaled to complexity |
+| `/explain-simple` | Non-technical audience | Plain language, no jargon |
+| `/prompt-test` | Editing LLM prompts | Test against samples, catch regressions |
+| `/ai-engineer-review` | Architecture check | Brutally honest review |
+| `/architecture-docs` | Documentation | Architecture docs with Mermaid diagrams |
+| `/env-check` | Something broke | Validate environment setup |
+| `/recap` | End of session | Summarize for standup |
+| `/focus` | Switch repos | Pick repos from a list |
+| `/toolkit` | Discovery | See everything available |
 
-```
-claude-code-setup-evaluator/
-  .claude/                    # Claude Code hooks and distributed commands
-  skills/                     # AI skills (auto-activate when relevant)
-  commands/                   # Slash commands (user-triggered)
-  agent-docs/                 # On-demand documentation
-  scripts/
-    evaluate-setup/           # The evaluator engine (Layer 1 + Layer 3)
-  docs/
-    spec.md                   # Full evaluator specification
-  tests/                      # Test suite
-  repositories/               # Your repos go here (gitignored)
-```
+## Adding Your Own
 
-## How It Works
+- **Add a skill** — Create a folder in `skills/` with a `SKILL.md` file
+- **Add a command** — Create a folder in `commands/` with a `command.md` file
 
-This is a **meta-workspace** — you clone your project repos into the `repositories/` folder and run Claude Code from the workspace root. Claude gets access to all skills and commands automatically. Your repos push to their own remotes; the workspace is never involved.
-
-```
-$ claude
-
-You: /evaluate-setup
-
-Claude: Where do you want the full review?
-        > Terminal / File
-
-        What do you want to evaluate?
-        > Everything / Skills only / A specific item
-
-        [runs Layer 1 static analysis]
-        [reads all files, scores each on rubric]
-        [suggests cross-type optimizations]
-
-        ## Evaluation Summary
-        Your setup is solid. Found 1 issue that needs attention.
-        Reviewed 6 skills, 17 commands, CLAUDE.md. Total: 8,234 tokens (4%).
-
-        Suggestions:
-          1. Remove clean-code-guide skill (100% redundant with Claude defaults)
-
-        Full review: printed above
+After adding, run the alignment script to distribute to both tools:
+```bash
+uv run .ai-workspace/scripts/align-workspace.py
 ```
 
-## Multi-Tool Support
+Then run `/evaluate-setup` to check quality.
 
-The `main` branch is Claude Code only. For Cursor + Gemini + OpenCode support, see the [`multi-tool`](../../tree/multi-tool) branch.
+## The Evaluator (`/evaluate-setup`)
 
-## Contributing
+Checks whether your skills, commands, CLAUDE.md, and hooks are actually helping — or wasting context.
 
-- **Add a skill** — Add it to `skills/` following the [Agent Skills spec](https://agentskills.io/specification)
-- **Add a command** — Add it to `commands/`
-- **Add a rule** — Extend the evaluator in `scripts/evaluate-setup/src/the_evaluator/rules/`
-- **Run `/evaluate-setup`** on your changes to make sure they pass
+**Layer 1 — Static Analysis.** 15 rules scan for mechanical issues: missing descriptions, broken references, duplicates, prompt injection, token budget violations.
+
+**Layer 2 — AI Review.** Claude scores each item on a 5-dimension rubric and suggests optimizations.
+
+**Layer 3 — A/B Testing** (optional, `--deep`). Tests whether skills actually change Claude's behavior.
+
+> **Note:** `skills/clean-code-guide` and `commands/check-code` are intentionally low-quality examples for testing the evaluator.
 
 ## Learn More
 
-- [`GUIDE.md`](GUIDE.md) — Full guide with all skills, commands, hooks, and how each one works
-- [`CLAUDE.md`](CLAUDE.md) — What Claude reads at session start
+- [`GUIDE.md`](GUIDE.md) — Full reference for all skills, commands, and hooks
 - [`docs/spec.md`](docs/spec.md) — Full evaluator specification
+- [`instructions.md`](instructions.md) — Detailed guide including Cursor-specific notes
 
 ## Credits
 

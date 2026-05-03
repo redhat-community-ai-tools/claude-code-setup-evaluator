@@ -1,1 +1,0 @@
-../../commands/toolkit/command.md

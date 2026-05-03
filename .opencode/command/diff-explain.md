@@ -1,1 +1,0 @@
-../../commands/diff-explain/command.md
