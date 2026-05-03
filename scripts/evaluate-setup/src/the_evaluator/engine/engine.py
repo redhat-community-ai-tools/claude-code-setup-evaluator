@@ -367,7 +367,7 @@ def lint(skill_path: str, config_rules: dict[str, str | list] | None = None) -> 
     diagnostics.extend(rule_diags)
 
     return LintResult(
-        skill_path=skill_path, skill_name=skill.dir_name, tokens=skill.tokens,
+        target_path=skill_path, target_name=skill.dir_name, tokens=skill.tokens,
         target_type="skill", diagnostics=diagnostics,
         error_count=sum(1 for d in diagnostics if d.severity == Severity.ERROR),
         warning_count=sum(1 for d in diagnostics if d.severity == Severity.WARNING),
@@ -395,7 +395,7 @@ def lint_command(command_path: str, config_rules: dict[str, str | list] | None =
     diagnostics.extend(rule_diags)
 
     return LintResult(
-        skill_path=command_path, skill_name=cmd.dir_name, tokens=cmd.tokens,
+        target_path=command_path, target_name=cmd.dir_name, tokens=cmd.tokens,
         target_type="command", diagnostics=diagnostics,
         error_count=sum(1 for d in diagnostics if d.severity == Severity.ERROR),
         warning_count=sum(1 for d in diagnostics if d.severity == Severity.WARNING),
@@ -427,7 +427,7 @@ def lint_claude_md(
     diagnostics.extend(rule_diags)
 
     return LintResult(
-        skill_path=file_path, skill_name=Path(file_path).name, tokens=claude_md.tokens,
+        target_path=file_path, target_name=Path(file_path).name, tokens=claude_md.tokens,
         target_type="claude_md", diagnostics=diagnostics,
         error_count=sum(1 for d in diagnostics if d.severity == Severity.ERROR),
         warning_count=sum(1 for d in diagnostics if d.severity == Severity.WARNING),
@@ -457,7 +457,7 @@ def lint_hooks(
     diagnostics.extend(rule_diags)
 
     return LintResult(
-        skill_path=settings_path, skill_name="hooks", tokens=0,
+        target_path=settings_path, target_name="hooks", tokens=0,
         target_type="hooks", diagnostics=diagnostics,
         error_count=sum(1 for d in diagnostics if d.severity == Severity.ERROR),
         warning_count=sum(1 for d in diagnostics if d.severity == Severity.WARNING),

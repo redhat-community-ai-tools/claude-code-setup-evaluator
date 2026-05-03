@@ -14,15 +14,14 @@ from the_evaluator.engine.engine import (
     lint_hooks,
     parse_skill,
 )
-from the_evaluator.engine.fixer import apply_fixes
 from the_evaluator.engine.registry import clear_rules
 from the_evaluator.rules import register_all_rules
 
 
 def _result_to_dict(result) -> dict:
     return {
-        "name": result.skill_name,
-        "path": result.skill_path,
+        "name": result.target_name,
+        "path": result.target_path,
         "type": result.target_type,
         "tokens": result.tokens,
         "diagnostics": [
@@ -71,7 +70,6 @@ def cli():
     help="Evaluation preset (default: recommended)",
 )
 @click.option("--config", "config_file", type=click.Path(), default=None)
-@click.option("--fix", is_flag=True, help="Auto-fix trivial issues")
 @click.option("--commands", is_flag=True, help="Also evaluate commands")
 @click.option("--claude-md", "claude_md", is_flag=True, help="Also evaluate CLAUDE.md")
 @click.option("--hooks", is_flag=True, help="Also evaluate hooks")
@@ -81,7 +79,6 @@ def scan(
     path: str,
     preset: str | None,
     config_file: str | None,
-    fix: bool,
     commands: bool,
     claude_md: bool,
     hooks: bool,
@@ -99,7 +96,7 @@ def scan(
     # --- Skills ---
     skill_results = lint_directory(path, config.rules)
     if target:
-        all_results.extend([r for r in skill_results if r.skill_name == target])
+        all_results.extend([r for r in skill_results if r.target_name == target])
     else:
         all_results.extend(skill_results)
 
@@ -111,7 +108,7 @@ def scan(
 
     # --- CLAUDE.md ---
     if claude_md or scan_all:
-        parsed_skills = [parse_skill(str(r.skill_path)) for r in skill_results] if skill_results else []
+        parsed_skills = [parse_skill(str(r.target_path)) for r in skill_results] if skill_results else []
         for claude_path in _find_claude_mds(scan_path):
             all_results.append(lint_claude_md(str(claude_path), config.rules, parsed_skills))
 
@@ -119,13 +116,6 @@ def scan(
     if hooks or scan_all:
         for settings_path in _find_settings(scan_path):
             all_results.append(lint_hooks(str(settings_path), config.rules))
-
-    # --- Fix ---
-    if fix:
-        all_diagnostics = [d for r in all_results for d in r.diagnostics]
-        fix_results = apply_fixes(all_diagnostics)
-        for fr in fix_results:
-            print(f"Fixed {fr.fixes_applied} issue(s) in {fr.file_path}", file=sys.stderr)
 
     # --- Output ---
     total_tokens = sum(r.tokens for r in all_results)
