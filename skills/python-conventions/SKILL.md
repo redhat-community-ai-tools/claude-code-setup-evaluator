@@ -11,7 +11,7 @@ description: Team-specific Python conventions — credential management with dot
 - When writing code that uses environment variables or credentials
 - When creating or modifying `.env` files
 - When writing tests or following TDD
-- When building or modifying code that calls external APIs (Jira, Gemini, LDAP)
+- When building or modifying code that calls external APIs (GitHub, Stripe, LDAP)
 - When reviewing code that handles HTTP responses or LLM output
 
 ## Credential Management
@@ -122,4 +122,4 @@ def test_model_reproducibility(sample_df):
 - **Independent tests** — each test sets up its own data
 - **Always set random seeds** — `random_state=42` for reproducibility
 - **Test edge cases** — None, empty DataFrame, NaN, inf
-- **Mock external APIs** — never hit real Jira/Gemini/LDAP in unit tests
+- **Mock external APIs** — never hit real GitHub/Stripe/LDAP in unit tests
