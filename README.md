@@ -1,166 +1,160 @@
-# AI Workspace — Data Science Team
+# Claude Code Setup Evaluator
 
-A shared workspace for using AI coding assistants (Claude Code, Cursor) consistently across our team's projects. One place for all our AI instructions, skills, commands, and conventions — so every team member gets the same quality of AI assistance from day one.
+A meta-workspace for Claude Code with a built-in 3-layer evaluator for your setup. Analyze your skills, commands, CLAUDE.md, and hooks for quality, redundancy, and optimization opportunities.
 
-## Why This Exists
+## What This Does
 
-AI assistants work great in a single repo, but our team works across multiple projects with shared conventions. Without a shared setup, everyone reinvents the wheel — writing their own prompts, missing best practices, and getting inconsistent results. This workspace solves that by giving every team member:
+Most Claude Code users accumulate skills, commands, and configuration over time — but never check if they're actually helping. This workspace gives you:
 
-- **Shared skills** — team knowledge baked into the AI (dotenv patterns, pipeline design, security checks, TDD workflows, and more)
-- **Shared commands** — `/verify`, `/review`, `/quality-gate`, `/plan`, `/refactor-safe`, `/recap` and more — the same workflows everywhere
-- **Cross-repo visibility** — all our repos in one workspace, so the AI can see and work across project boundaries
-- **Fast onboarding** — new team members (or new repos) get the full AI setup immediately
+- **`/evaluate-setup`** — A 3-layer evaluation command that scores your entire Claude Code setup
+- **17 slash commands** — `/plan`, `/verify`, `/review`, `/commit`, `/evaluate-setup`, and more
+- **6 built-in skills** — Security checks, Python conventions, pipeline patterns, TDD workflows
+- **Cross-repo workspace** — Work across multiple repositories with shared AI capabilities
 
-## Setup (one time)
+## The Evaluator (`/evaluate-setup`)
+
+The core feature. Run `/evaluate-setup` in Claude Code and it evaluates your entire setup:
+
+### Layer 1: Static Analysis (automated)
+A rule engine with 15 pluggable rules scans your files for mechanical issues:
+- Missing descriptions, broken file references, token budget violations
+- Prompt injection patterns, credential access attempts
+- Duplicate content detection across skills
+- Command script integrity, CLAUDE.md bloat, dangerous hook patterns
+
+### Layer 2: AI-Powered Review (Claude as judge)
+Claude scores each item on a structured rubric (5 dimensions, 1-5 scale):
+- **Skills**: specificity, redundancy, trigger quality, token efficiency, content quality
+- **Commands**: description quality, instruction clarity, script integrity, scope, efficiency
+- **CLAUDE.md**: conciseness, signal-to-noise, skill separation, structure, conflicts
+- Cross-type optimization suggestions (e.g., "this skill should be a hook")
+
+### Layer 3: A/B Testing (optional, `--deep`)
+Tests whether your skills actually change Claude's behavior:
+- Generates tasks, runs Claude with and without each skill, judges the difference
+- Repeat-and-vote: 3 judge calls per comparison for reliability
+- Red-team mode (`--deep --red-team`): adversarial testing for preventive skills
+
+## Quick Start
 
 ```bash
 # Clone the workspace
-git clone <workspace-repo-url>
-cd ai-workspace-template-ds
+git clone https://github.com/redhat-community-ai-tools/claude-code-setup-evaluator.git
+cd claude-code-setup-evaluator
 
 # Install dependencies and set up hooks
 uv sync
 uv run .ai-workspace/scripts/setup.py
 
-# Clone whatever repos you work on
+# Clone your repos into the workspace
 cd repositories/
 git clone <your-repo-url>
 cd ..
-```
 
-Your cloned repos are yours — the workspace doesn't track them. Other team members clone different repos into the same folder.
-
-## Daily Workflow
-
-**1. Start Claude Code from the workspace root:**
-```bash
-cd ai-workspace-template-ds
+# Start Claude Code
 claude
 ```
 
-Starting from the root loads all the skills and commands.
+Then run `/evaluate-setup` to evaluate your setup, or start working with the built-in commands.
 
-**2. Tell Claude which repo to focus on:**
-> "I'm working on site-analysis today"
+## Commands
 
-or just start asking about it:
-> "Run the tests in site-analysis"
+| Command | What it does |
+|---------|-------------|
+| `/evaluate-setup` | Evaluate your Claude Code setup (skills, commands, CLAUDE.md, hooks) |
+| `/plan` | Design approach before coding, wait for approval |
+| `/verify` | Check types, lint, and tests |
+| `/review` | Code review with security checks |
+| `/quality-gate` | Pre-push safety check (tests + secret scan) |
+| `/commit` | Generate commit message, preview, approve |
+| `/refactor-safe` | Refactor internals without changing public API |
+| `/test-coverage` | Find untested code, generate missing tests |
+| `/diff-explain` | Explain changes by intent, not file count |
+| `/explain-code` | Layered code explanation scaled to complexity |
+| `/explain-simple` | Explain code in plain language |
+| `/prompt-test` | Test LLM prompts against sample inputs |
+| `/ai-engineer-review` | Brutally honest architecture review |
+| `/architecture-docs` | Generate architecture docs with Mermaid diagrams |
+| `/env-check` | Validate local environment setup |
+| `/recap` | Summarize session for standup |
+| `/focus` | Switch repo focus mid-session |
+| `/toolkit` | Show available capabilities |
 
-**3. Work normally.** Skills activate automatically in the background — you don't need to do anything. When you write Python, Claude already knows your team's dotenv conventions, testing patterns, security rules, and pipeline design patterns.
+## Skills (activate automatically)
 
-**4. Use commands as you work:**
+| Skill | What it does |
+|-------|-------------|
+| `security-check` | Detects credential leaks, insecure patterns, LLM-specific risks |
+| `python-conventions` | Dotenv conventions, API client rules, TDD workflow |
+| `data-pipeline-patterns` | Pipeline stage design, validation, circuit breakers |
+| `verification-loop` | Powers `/verify`, `/review`, `/quality-gate` |
+| `brainstorming` | Design exploration before implementation |
+| `writing-plans` | Creates implementation plans from approved specs |
 
-| Command | When | What it does |
-|---------|------|-------------|
-| `/plan` | Before coding anything complex | Designs the approach, waits for your OK before writing code |
-| `/verify` | After coding | Checks if your code works (types, lint, tests) |
-| `/review` | Before pushing | Code review with security and DS anti-pattern checks |
-| `/quality-gate` | Right before `git push` | Pre-push safety check (tests + secret scan) |
-| `/commit` | When ready to commit | Generates a good commit message, shows preview, you approve |
-| `/refactor-safe` | After review | Refactors internals without changing public API |
-| `/test-coverage` | When adding tests | Finds untested code and generates missing tests |
-| `/env-check` | First clone / something broke | Validates Python version, dependencies, env vars, config |
-| `/recap` | End of session | Summarizes what you did — copy-paste for standup |
-| `/diff-explain` | Reviewing changes | Explains a branch's changes by intent, not file count |
-| `/explain-code` | Onboarding / unfamiliar code | Explains code at the right level of detail |
-| `/explain-simple` | Non-technical audience | Explains a file or folder like you're 15 — no jargon |
-| `/prompt-test` | After editing LLM prompts | Tests prompts against sample inputs, checks quality, catches regressions |
-| `/ai-engineer-review` | Architecture check | Brutally honest architecture and code review |
-| `/architecture-docs` | Documentation | Generates architecture docs with diagrams (`--quick` for just a Mermaid diagram) |
-| `/focus` | Switch repos mid-session | Re-presents the repo menu, replaces current focus |
-| `/toolkit` | First time / discovery | Shows everything available and recommends what to use |
+> **Note:** `skills/clean-code-guide` and `commands/check-code` are intentionally low-quality examples included for testing the evaluator. Run `/evaluate-setup` to see how they get flagged.
 
-**5. Push from inside the repo:**
-```bash
-cd repositories/site-analysis
-git push origin my-branch
-```
-
-Pushes go to the repo's own remote. The workspace is never involved.
-
-## What You DON'T Need To Do
-
-- **Don't memorize skills.** There are 6 of them (security, pipelines, conventions, etc.) — they activate automatically when relevant. You just get better results without thinking about it.
-- **Don't configure anything per-repo.** The workspace handles it.
-- **Don't worry about pushing to the wrong repo.** Your repos are independent clones. `git push` from inside a repo goes to that repo's remote.
-
-## Example Session
+## Project Structure
 
 ```
-$ cd ai-workspace-template-ds
+claude-code-setup-evaluator/
+  .claude/                    # Claude Code hooks and distributed commands
+  skills/                     # AI skills (auto-activate when relevant)
+  commands/                   # Slash commands (user-triggered)
+  agent-docs/                 # On-demand documentation
+  scripts/
+    evaluate-setup/           # The evaluator engine (Layer 1 + Layer 3)
+  docs/
+    spec.md                   # Full evaluator specification
+  tests/                      # Test suite
+  repositories/               # Your repos go here (gitignored)
+```
+
+## How It Works
+
+This is a **meta-workspace** — you clone your project repos into the `repositories/` folder and run Claude Code from the workspace root. Claude gets access to all skills and commands automatically. Your repos push to their own remotes; the workspace is never involved.
+
+```
 $ claude
 
-You: I'm working on site-analysis. Add retry logic to the Jira fetcher.
+You: /evaluate-setup
 
-Claude: [reads the code, uses python-conventions skill automatically]
-        Let me plan this first...
-        [proposes approach with exponential backoff]
+Claude: Where do you want the full review?
+        > Terminal / File
 
-You: /plan looks good, go ahead
+        What do you want to evaluate?
+        > Everything / Skills only / A specific item
 
-Claude: [implements, uses python-conventions skill to write tests first]
+        [runs Layer 1 static analysis]
+        [reads all files, scores each on rubric]
+        [suggests cross-type optimizations]
 
-You: /verify
+        ## Evaluation Summary
+        Your setup is solid. Found 1 issue that needs attention.
+        Reviewed 6 skills, 17 commands, CLAUDE.md. Total: 8,234 tokens (4%).
 
-Claude: Types OK, Lint OK, 72 tests pass
+        Suggestions:
+          1. Remove clean-code-guide skill (100% redundant with Claude defaults)
 
-You: /commit
-
-Claude: "Add exponential backoff retry to Jira API client"
-        Files: scripts/fetch_jira_data.py, tests/test_fetch_jira.py
-        Proceed? [y/n]
-
-You: y
-
-You: /recap
-
-Claude: ## What was done
-        - Added retry with exponential backoff to Jira fetcher
-        - Handles 429/500/502/503 with Retry-After header support
-        - Added 4 tests covering retry, backoff, and rate limit scenarios
-
-        ## Ready To Share
-        Added retry logic to Jira API client - handles rate limits
-        and transient failures with exponential backoff. 4 new tests.
-        commit abc1234
+        Full review: printed above
 ```
 
-## What's Inside
+## Multi-Tool Support
 
-| Directory | What it is |
-|---|---|
-| `repositories/` | Your repos — clone what you need here |
-| `skills/` | 6 AI skills — team patterns, security, conventions, pipelines, and more |
-| `commands/` | 17 slash commands — `/plan`, `/verify`, `/review`, `/quality-gate`, etc. |
-| `agent-docs/` | On-demand documentation the AI reads when relevant (writing skills guide, subagent development, etc.) |
-| `.cursor/rules/` | Same skills, formatted for Cursor |
-| `.cursor/commands/` | Same commands, formatted for Cursor |
-
-See [`instructions.md`](instructions.md) for the full list of skills, commands, and how each one works.
-
-## Supported Tools
-
-| Tool | Skills | Commands | Hooks |
-|---|---|---|---|
-| **Claude Code** | `skills/*/SKILL.md` | `.claude/commands/` | Session start, secret scan, skill suggestion |
-| **Cursor** | `.cursor/rules/*.mdc` | `.cursor/commands/` | Session start |
+The `main` branch is Claude Code only. For Cursor + Gemini + OpenCode support, see the [`multi-tool`](../../tree/multi-tool) branch.
 
 ## Contributing
 
-This workspace gets better when the team contributes. You can:
-
-- **Add a skill** — learned a pattern that would help others? Add it to `skills/`
-- **Add a command** — have a workflow you repeat? Make it a `/command` in `commands/`
-- **Add docs** — know something the AI should know? Add it to `agent-docs/`
-- **Add your repo** — clone it into `repositories/`
-
-After making changes, run the alignment script to keep everything in sync:
-```bash
-uv run .ai-workspace/scripts/align-workspace.py
-```
+- **Add a skill** — Add it to `skills/` following the [Agent Skills spec](https://agentskills.io/specification)
+- **Add a command** — Add it to `commands/`
+- **Add a rule** — Extend the evaluator in `scripts/evaluate-setup/src/the_evaluator/rules/`
+- **Run `/evaluate-setup`** on your changes to make sure they pass
 
 ## Learn More
 
-- [`instructions.md`](instructions.md) — Full guide with all skills, commands, and workflows
-- [`CLAUDE.md`](CLAUDE.md) — What the AI reads at session start
-- [AI Workspace Template docs](https://michaelyochpaz.github.io/ai-workspace-template/) — Upstream project documentation
+- [`GUIDE.md`](GUIDE.md) — Full guide with all skills, commands, hooks, and how each one works
+- [`CLAUDE.md`](CLAUDE.md) — What Claude reads at session start
+- [`docs/spec.md`](docs/spec.md) — Full evaluator specification
+
+## Credits
+
+Built on top of [ai-workspace-template](https://github.com/MichaelYochpaz/ai-workspace-template) by Michael Yochpaz.
