@@ -27,15 +27,8 @@ from session_context import SessionContext
 
 # Import session-start tasks
 from repository_status import run_repository_status
-from tool_discovery import run_tool_discovery
 
-# JSON output formatters for tools that use a JSON hook protocol.
-# Each formatter receives the rendered context string and returns a dict
-# matching the tool's expected sessionStart output schema.
-FORMATTERS: dict[str, Any] = {
-    "cursor": lambda ctx: {"additional_context": ctx},
-    "gemini": lambda ctx: {"hookSpecificOutput": {"additionalContext": ctx}},
-}
+FORMATTERS: dict[str, Any] = {}
 
 
 def collect_context() -> str:
@@ -47,9 +40,6 @@ def collect_context() -> str:
 
     # Gather repository status for agent context
     run_repository_status(ctx, repo_root)
-
-    # Run tool discovery
-    run_tool_discovery(ctx, repo_root)
 
     return ctx.render()
 

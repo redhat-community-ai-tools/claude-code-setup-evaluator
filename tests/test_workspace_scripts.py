@@ -1,7 +1,7 @@
 """Tests for workspace infrastructure scripts.
 
-Verifies that transpile-commands and transpile-skills
-produce correct output and don't silently lose content.
+Verifies that transpile-commands produces correct output
+and doesn't silently lose content.
 """
 
 import importlib.util
@@ -39,7 +39,6 @@ def _import_script(name: str):
     return mod
 
 
-_skills_mod = _import_script("transpile-skills.py")
 _commands_mod = _import_script("transpile-commands.py")
 
 
@@ -79,89 +78,6 @@ class TestTranspileCommands:
 
         missing_claude = source_names - claude_names
         assert not missing_claude, f"Commands missing from .claude/commands/: {missing_claude}"
-
-
-class TestTranspileSkills:
-    def test_runs_successfully(self):
-        result = run_script("transpile-skills.py")
-        assert result.returncode == 0, f"transpile-skills failed: {result.stderr}"
-
-
-class TestSkillValidationErrors:
-    """Error-case tests for skill validation logic."""
-
-    def test_missing_frontmatter(self, tmp_path):
-        skill_dir = tmp_path / "my-skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("# No frontmatter\nJust content.")
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("frontmatter" in e.lower() for e in errors)
-
-    def test_invalid_yaml_frontmatter(self, tmp_path):
-        skill_dir = tmp_path / "my-skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text("---\n: [invalid yaml\n---\n# Body")
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("frontmatter" in e.lower() for e in errors)
-
-    def test_missing_name_field(self, tmp_path):
-        skill_dir = tmp_path / "my-skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            '---\ndescription: "A skill"\n---\n# Body\nContent here.'
-        )
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("name" in e.lower() for e in errors)
-
-    def test_missing_description_field(self, tmp_path):
-        skill_dir = tmp_path / "my-skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            "---\nname: my-skill\n---\n# Body\nContent here."
-        )
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("description" in e.lower() for e in errors)
-
-    def test_invalid_name_format(self, tmp_path):
-        skill_dir = tmp_path / "My_Skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            '---\nname: My_Skill\ndescription: "A skill"\n---\n# Body\nContent.'
-        )
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("lowercase" in e.lower() or "alphanumeric" in e.lower() for e in errors)
-
-    def test_name_doesnt_match_directory(self, tmp_path):
-        skill_dir = tmp_path / "actual-name"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            '---\nname: wrong-name\ndescription: "A skill"\n---\n# Body\nContent.'
-        )
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("match directory" in e.lower() for e in errors)
-
-    def test_empty_markdown_body(self, tmp_path):
-        skill_dir = tmp_path / "my-skill"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            '---\nname: my-skill\ndescription: "A skill"\n---\n'
-        )
-
-        skill, errors = _skills_mod.parse_skill(skill_dir)
-        assert skill is None
-        assert any("empty" in e.lower() and "body" in e.lower() for e in errors)
 
 
 class TestSkillSuggestHook:

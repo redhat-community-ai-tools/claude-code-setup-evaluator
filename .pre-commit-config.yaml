@@ -1,12 +1,6 @@
 repos:
   - repo: local
     hooks:
-      - id: transpile-skills
-        name: Validate skills
-        entry: uv run .ai-workspace/scripts/transpile-skills.py --validate
-        language: system
-        pass_filenames: false
-        files: '^skills/.*/SKILL\.md$'
       - id: transpile-commands
         name: Validate commands
         entry: uv run .ai-workspace/scripts/transpile-commands.py --validate
