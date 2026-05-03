@@ -162,7 +162,7 @@ async def query_data(input: QueryInput, context: RequestContext):
 | **stdio** | Local development, Claude Desktop, single user | Simplest — just run the server as a subprocess |
 | **Streamable HTTP** | Remote teams, Cursor, cloud deployment, multiple clients | Single HTTP endpoint, supports auth headers |
 
-## Common MCP Patterns for Data Science
+## Common MCP Patterns
 
 ### Data Source MCP
 

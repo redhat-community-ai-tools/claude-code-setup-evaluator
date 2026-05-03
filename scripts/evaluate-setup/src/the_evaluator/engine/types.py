@@ -144,8 +144,8 @@ class RuleContext:
 
 @dataclass
 class LintResult:
-    skill_path: str
-    skill_name: str
+    target_path: str
+    target_name: str
     tokens: int
     target_type: str = "skill"
     diagnostics: list[Diagnostic] = field(default_factory=list)

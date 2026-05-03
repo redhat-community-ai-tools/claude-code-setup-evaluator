@@ -413,7 +413,7 @@ the-evaluator/
             security.py            # Security rules only
 ```
 
-`prompt.md` is the brain — it tells Claude what to do, what rubric to evaluate against, and how to format the output. The rule engine and Python scripts are the hands — they do the mechanical work that Claude can't or shouldn't do itself.
+`command.md` is the brain — it tells Claude what to do, what rubric to evaluate against, and how to format the output. The rule engine and Python scripts are the hands — they do the mechanical work that Claude can't or shouldn't do itself.
 
 ### 5.2 Layer 1 details: rule engine
 
@@ -827,7 +827,7 @@ The engine parses these before running rules. Suppressed diagnostics are silentl
 
 ### 5.3 Layer 2 details: the command prompt
 
-The command prompt (`prompt.md`) is where the product logic lives. It encodes the evaluation criteria that Claude applies to each skill, command, and CLAUDE.md file. This is the part that requires the most craft — it's the difference between a generic "look at these files" and a rigorous quality audit.
+The command prompt (`command.md`) is where the product logic lives. It encodes the evaluation criteria that Claude applies to each skill, command, and CLAUDE.md file. This is the part that requires the most craft — it's the difference between a generic "look at these files" and a rigorous quality audit.
 
 **The prompt instructs Claude to:**
 

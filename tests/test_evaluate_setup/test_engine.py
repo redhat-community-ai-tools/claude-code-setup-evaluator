@@ -190,7 +190,7 @@ class TestLint:
     def test_lint_directory(self):
         results = lint_directory(str(FIXTURES))
         assert len(results) == 3
-        names = {r.skill_name for r in results}
+        names = {r.target_name for r in results}
         assert "good-skill" in names
         assert "bad-skill" in names
         assert "security-skill" in names

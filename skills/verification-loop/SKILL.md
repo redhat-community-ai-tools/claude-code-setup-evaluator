@@ -69,7 +69,7 @@ For each changed file (`git diff --name-only HEAD`), check:
 - Missing docstrings with Args/Returns/Raises
 - Bare `except`, mutable default arguments, global state mutation
 
-**Data Science Anti-Patterns (HIGH — should fix):**
+**Common Anti-Patterns (HIGH — should fix):**
 - Data leakage (fitting transformers before train/test split)
 - Missing random seeds for reproducibility
 - Hardcoded file paths
