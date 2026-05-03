@@ -2,10 +2,6 @@
 # Repository status reporting (used by repository_status.py)
 include_workspace_root = false       # Include workspace root repo in session status
 
-[tools]
-# Tool discovery behavior (used by tool_discovery.py)
-show_unavailable = false  # Show all tools with availability status (false = only available)
-
 [features]
 # Enable/disable workspace features
 skills = true

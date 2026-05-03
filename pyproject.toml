@@ -1,7 +1,7 @@
 [project]
-name = "ai-workspace-template"
+name = "claude-code-setup-evaluator"
 version = "1.0.0"
-description = "A meta-repository that aggregates related repositories into a single AI-focused workspace using git submodules."
+description = "Claude Code workspace with built-in setup evaluation for skills, commands, CLAUDE.md, and hooks."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,7 +11,6 @@ dependencies = [
 ]
 [dependency-groups]
 dev = [
-    "zensical>=0.0.21",
     "pre-commit>=4.3.0",
     "pytest>=9.0.1",
     "click>=8.0",

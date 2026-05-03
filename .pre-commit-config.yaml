@@ -7,12 +7,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-      - id: transpile-skills
-        name: Validate and transpile skills
-        entry: uv run .ai-workspace/scripts/transpile-skills.py --validate
-        language: system
-        pass_filenames: false
-        files: '^skills/.*/SKILL\.md$'
       - id: transpile-commands
         name: Validate commands
         entry: uv run .ai-workspace/scripts/transpile-commands.py --validate
