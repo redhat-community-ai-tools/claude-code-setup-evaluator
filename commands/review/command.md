@@ -4,7 +4,11 @@ description: "Is my code good? Runs verification-loop phase 5 (code review with 
 
 # Review Command
 
-Activate the `verification-loop` skill and run **Phase 5** only:
+Use the Skill tool to invoke `verification-loop` explicitly, then run **Phase 5** only.
+
+If the Skill tool is not available or the skill is not found, run the review checks directly (see the verification-loop skill for Phase 5 criteria).
+
+Phase 5 checks:
 - Security issues (CRITICAL)
 - Code quality (HIGH)
 - Data science anti-patterns (HIGH)
