@@ -57,11 +57,9 @@ Skills are knowledge that Claude carries in the background. You don't trigger th
 | Command | When to use | What it does |
 |---------|-------------|-------------|
 | `/evaluate-setup` | Anytime | Evaluate your entire Claude Code setup (see below) |
-| `/plan` | Before coding | Design approach, wait for your OK |
 | `/verify` | After coding | Check types, lint, tests |
 | `/review` | Before pushing | Code review with security checks |
 | `/quality-gate` | Before `git push` | Tests + secret scan |
-| `/commit` | Ready to commit | Generate message, preview, approve |
 | `/refactor-safe` | After review | Refactor without changing public API |
 | `/test-coverage` | Adding tests | Find untested code, generate tests |
 | `/diff-explain` | Reviewing changes | Explain by intent, not file count |
@@ -100,7 +98,7 @@ The built-in evaluation command checks whether your skills, commands, CLAUDE.md,
 
 **Layer 2 — AI Review.** Claude scores each item on a structured rubric (5 dimensions, 1-5 scale) and suggests cross-type optimizations — e.g., "this skill should be a hook" or "move this from CLAUDE.md to a skill."
 
-**Layer 3 — A/B Testing** (optional, `--deep`). Tests whether skills actually change Claude's behavior by running tasks with and without each skill and judging the difference.
+**Layer 3 — A/B Testing** (optional). Tests whether skills actually change Claude's behavior by running tasks with and without each skill on your actual repositories, then using Gemini to judge the difference with redundancy-first scoring.
 
 ```
 You: /evaluate-setup

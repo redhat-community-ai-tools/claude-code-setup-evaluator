@@ -37,13 +37,12 @@ Everything this workspace gives you — skills, commands, hooks, and how they wo
 
 ## Start Here
 
-Your daily workflow in 4 commands:
+Your daily workflow in 3 commands:
 
 ```
-/plan          → before coding anything complex
 /verify        → after coding, check it works
 /review        → code review
-/commit        → commit with a good message
+/quality-gate  → before pushing
 ```
 
 Everything else is available when you need it. Skills activate automatically.
@@ -84,11 +83,9 @@ Type the command name in the chat to run it.
 | Command | When | What it does |
 |---------|------|-------------|
 | `/evaluate-setup` | Anytime | Evaluates your Claude Code setup — skills, commands, CLAUDE.md, hooks |
-| `/plan` | Before coding anything complex | Designs the approach, waits for your OK before writing code |
 | `/verify` | After coding | Checks if your code works (types, lint, tests) |
 | `/review` | Before pushing | Code review with security and anti-pattern checks |
 | `/quality-gate` | Right before `git push` | Pre-push safety check (tests + secret scan) |
-| `/commit` | When ready to commit | Generates a good commit message, shows preview, you approve |
 | `/refactor-safe` | After review | Refactors internals without changing public API |
 | `/test-coverage` | When adding tests | Finds untested code and generates missing tests |
 | `/env-check` | First clone / something broke | Validates Python version, dependencies, env vars, config |
@@ -133,7 +130,7 @@ The flagship feature. Evaluates your entire Claude Code setup across 3 layers:
 
 **Layer 2 — AI Review:** Claude scores each item on a 5-dimension rubric, suggests cross-type optimizations (e.g., "this skill should be a hook"), and produces numbered suggestions you can act on.
 
-**Layer 3 — A/B Testing** (optional, `--deep`): Tests whether skills actually change Claude's behavior by running tasks with and without each skill, then judging the difference.
+**Layer 3 — A/B Testing** (optional): Tests whether skills actually change Claude's behavior by running tasks with and without each skill on your actual repos, then using Gemini to judge with redundancy-first scoring. Requires `GOOGLE_API_KEY` in `.env`.
 
 See [docs/spec.md](docs/spec.md) for the full specification.
 
