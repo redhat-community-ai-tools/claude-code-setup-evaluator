@@ -16,39 +16,82 @@ You are running **the-evaluator** — a health check for Claude Code setups. You
 
 ## Step 0: Ask the User Before Starting
 
-Before running anything, ask the user two questions using AskUserQuestion:
+This is a two-round question flow. Ask round 1 first, then ask round 2 based on the answers.
 
-1. **Output format:** "Where do you want the full review?"
-   - **Terminal** — print everything here (can be long)
-   - **File** — save to `evaluate-setup-report.md` in the project root (recommended for full setup scans)
+### Round 1: Ask these 3 questions together in a single AskUserQuestion call
 
-2. **Scope:** "What do you want to evaluate?"
+1. **Scope:** "What do you want to evaluate on Layers 1+2?"
    - **Everything** — skills + commands + CLAUDE.md + hooks
    - **Skills only**
    - **A specific item** — ask which one
 
-Wait for answers before proceeding. The user's choices determine where output goes and what gets scanned.
+2. **Layers:** "Which layers do you want to run?"
+   - **All (1 + 2 + 3)** — static analysis, rubric scoring, and A/B redundancy testing
+   - **Layers 1 + 2** — static analysis and rubric scoring (no A/B testing)
+   - **Layer 3 only** — A/B redundancy testing only (skip static analysis and rubric)
+
+3. **Output:** "Where do you want the report?"
+   - **Terminal** — print everything here
+   - **File** — save to a file (recommended for full scans)
+
+Wait for answers before proceeding to round 2.
+
+### Round 2: Follow-up questions (based on round 1 answers)
+
+**If the user chose "All" or "Layer 3 only" for layers:** Ask a follow-up question using AskUserQuestion to select which skills to A/B test in Layer 3. The scope from question 1 applies to Layers 1+2 only — Layer 3 always requires explicit skill selection because not all skills are good A/B candidates.
+
+Present the skill list with recommendations. Pre-check skills that teach concrete patterns or rules. Un-check workflow orchestrators, format definitions, or skills that scored too low to justify the cost:
+
+```
+Which skills should Layer 3 (A/B testing) evaluate?
+
+  1. [x] data-pipeline-patterns    — good candidate (teaches specific patterns)
+  2. [x] python-conventions        — good candidate (teaches specific rules)
+  3. [x] security-check            — good candidate (preventive, can red-team)
+  4. [ ] brainstorming             — poor candidate (workflow gate, not single-turn)
+  5. [ ] writing-plans             — poor candidate (document format, not testable)
+  6. [ ] verification-loop         — poor candidate (orchestrates tools, not single-turn)
+
+Select by number (e.g. 1-3, all, 1 2 5):
+```
+
+**If the user chose file output:** Check if `evaluate-setup-report.md` already exists. If it does, ask the user for a different filename — do NOT overwrite existing reports.
+
+### Flow matrix
+
+| Scope | Layers | What runs |
+|---|---|---|
+| Everything | All | L1 all → L2 all → L3 selected skills |
+| Everything | 1 + 2 | L1 all → L2 all |
+| Everything | 3 only | L3 selected skills only |
+| Skills only | All | L1 skills → L2 skills → L3 selected skills |
+| Skills only | 1 + 2 | L1 skills → L2 skills |
+| Skills only | 3 only | L3 selected skills only |
+| Specific item | All | L1 + L2 + L3 on that item |
+| Specific item | 1 + 2 | L1 + L2 on that item |
+| Specific item | 3 only | L3 on that item |
 
 ## Arguments
 
 `$ARGUMENTS` may include:
 - A path (e.g., `~/.claude/skills/`, `skills/python-conventions/`)
 - `--preset strict` or `--preset security` (default: recommended)
-- `--deep` (run Layer 3 A/B evaluation — requires API keys)
-- `--deep --red-team` (adversarial testing for preventive skills)
+- `--red-team` (adversarial testing for preventive skills in Layer 3)
 - Natural language like "evaluate my setup", "is my python skill any good?"
 
-If no path is given and the user didn't answer Step 0 (e.g., they passed arguments directly), default to scanning skills in the current directory with terminal output.
+If no path is given and the user didn't answer Step 0 (e.g., they passed arguments directly), default to scanning skills in the current directory with terminal output, Layers 1+2 only.
 
 ## Step 1: Run Layer 1 (Static Analysis)
 
-Find the static analyzer script relative to this command:
+*Skip this step if the user chose "Layer 3 only".*
+
+Find the evaluator project directory:
 
 ```bash
-SCRIPT_DIR="$(dirname "$(readlink -f commands/evaluate-setup/command.md 2>/dev/null || echo commands/evaluate-setup/command.md)")"
-ANALYZER="$(find "$(dirname "$SCRIPT_DIR")" -path '*/evaluate-setup/src/the_evaluator/cli.py' 2>/dev/null | head -1)"
-PROJECT_DIR="$(echo "$ANALYZER" | sed 's|/src/the_evaluator/cli.py||')"
+PROJECT_DIR="$(find . -path '*/evaluate-setup/src/the_evaluator/cli.py' -not -path '*/.git/*' 2>/dev/null | head -1 | sed 's|/src/the_evaluator/cli.py||')"
 ```
+
+If that returns empty, fall back to `scripts/evaluate-setup`.
 
 Run the analysis:
 
@@ -58,7 +101,11 @@ uv run --project "$PROJECT_DIR" evaluate-setup scan <PATH> [--preset <PRESET>]
 
 Read the JSON output. This gives you per-skill diagnostics with rule IDs, severities, and token counts.
 
+Layer 1 checks include: frontmatter validation, trigger quality, token budget, broken file references, TF-IDF cosine similarity for near-duplicate detection (threshold 0.85), prompt injection patterns, and credential access references.
+
 ## Step 2: Read Actual Files (Layer 2 Preparation)
+
+*Skip this step if the user chose "Layer 3 only".*
 
 Read the actual content of:
 1. Every skill file (SKILL.md) in the scan path
@@ -68,6 +115,8 @@ Read the actual content of:
 You need the actual content — not just the Layer 1 JSON — to evaluate quality, redundancy, and content.
 
 ## Step 3: Evaluate Each Skill (Layer 2)
+
+*Skip this step if the user chose "Layer 3 only".*
 
 For each skill, produce a **structured rubric score** on 5 dimensions:
 
@@ -182,6 +231,8 @@ For each hook, check:
 
 ## Step 4: Cross-Type Optimization (the full picture)
 
+*Skip this step if the user chose "Layer 3 only".*
+
 This is where you look at the **whole setup** and suggest transformations between types. Only suggest transformations when you genuinely believe they would improve the setup — don't suggest changes for the sake of it.
 
 ### Transformation types to consider:
@@ -230,13 +281,57 @@ This is where you look at the **whole setup** and suggest transformations betwee
 
 ## Step 5: Produce the Report
 
+*Skip this step if the user chose "Layer 3 only".*
+
 ### Step 5a: Full Review
 
-If the user chose **terminal output**, print the full review directly. If they chose **file output**, write it to `evaluate-setup-report.md` in the project root and tell the user where to find it.
+If the user chose **terminal output**, print the full review directly. If they chose **file output**, write it to the chosen filename and tell the user where to find it.
 
 Full review format:
 
 ```
+## How This Evaluation Works
+
+This report was generated by the evaluate-setup tool. Here's what each layer did:
+
+**Layer 1 (Static Analysis)** — A Python script automatically scanned every
+skill, command, and CLAUDE.md file. It checked: does each SKILL.md have valid
+frontmatter? Does the description start with "Use when"? Is the skill under
+1,500 tokens? Do referenced files exist? Are any two skills near-duplicates
+(using TF-IDF text similarity)? Are there prompt injection patterns or
+hardcoded credentials? This layer catches mechanical issues — broken files,
+missing fields, structural problems.
+
+**Layer 2 (Rubric Scoring)** — Claude read every file and scored it on a
+weighted rubric. For skills: Specificity (are instructions actionable?),
+Redundancy (does Claude already do this by default?), Trigger Quality (will it
+activate at the right time?), Token Efficiency (value per token), and Content
+Quality (structure, examples, references). For commands: 7 dimensions including
+whether Claude already does this without the command. For CLAUDE.md: conciseness,
+signal-to-noise, and whether domain rules belong in skills instead. Then Claude
+looked across all items for conflicts, overlaps, and type mismatches (e.g., a
+skill that should be a hook).
+
+[If Layer 3 ran:]
+**Layer 3 (A/B Testing)** — This layer answers the question: "does this skill
+actually change Claude's behavior, or does Claude already do the same thing
+without it?" For selected skills, Gemini generated 4 test tasks (1 knowledge
+question + 3 tasks on your actual repositories). Claude ran each task twice:
+once with the skill loaded, once without. Gemini then judged the pair with a
+**redundancy-first** approach: the primary question (~70%) is "did one response
+apply specific conventions from the skill that the other missed?" — not just
+"which response is better." If both responses follow the same conventions
+equally well, that means Claude already knows the content and the skill is
+redundant — the verdict is TIE regardless of minor quality differences. Quality
+is only a tiebreaker (~30%) when the redundancy check is inconclusive. Each
+task gets 3 blind votes (the judge doesn't know which response had the skill),
+majority wins. If both responses were equally vague or unhelpful, the test is
+marked inconclusive rather than forcing a verdict. Subagents have READ-ONLY
+access to your repositories — they can read and search code but never modify
+files, commit, or push.
+
+---
+
 ## Static Analysis (Layer 1)
   Preset: <preset> | <N> skills, <M> commands, <K> other items
   <tokens> tokens total (<pct>% of context budget)
@@ -279,7 +374,7 @@ Suggestions (say "do 1", "do 2", "skip 3" to act on them):
   2. <one-line suggestion>
   3. <one-line suggestion>
 
-Full review: <"printed above" or "saved to evaluate-setup-report.md">
+Full review: <"printed above" or "saved to <filename>">
 ```
 
 **Numbering rules:**
@@ -290,23 +385,310 @@ Full review: <"printed above" or "saved to evaluate-setup-report.md">
 
 **Key principle:** If nothing significant needs to change, say "your setup is solid" and list only the minor items. Don't pad the summary with nice-to-have suggestions. The user should be able to read the summary in 10 seconds and know: do I need to act or not?
 
-## Step 6: Deep Evaluation (Layer 3 — only if --deep was passed)
+## Step 6: Deep Evaluation (Layer 3)
 
-If `--deep` was requested:
+*Run this step if the user chose "All" or "Layer 3 only" for layers.*
 
-1. Check that `ANTHROPIC_API_KEY` and `GEMINI_API_KEY` are available in the environment
-2. Show estimated cost: 46 API calls per skill × number of skills to test
-3. Ask the user for confirmation before proceeding
-4. Run `deep_eval.py`:
+### 6.1: Check prerequisites
 
+**Check `GOOGLE_API_KEY`:**
 ```bash
-uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval <PATH> [--red-team] [--model sonnet]
+grep -q "GOOGLE_API_KEY" .env 2>/dev/null && echo "found" || echo "missing"
 ```
 
-5. Read the JSON results
-6. For each skill tested, add A/B evidence to the report:
-   - Standard mode: wins/ties/losses, confidence levels, overall verdict (HELPS/NO IMPACT/HURTS)
-   - Red-team mode: held/broke/partial, red-team score, overall verdict (STRONG/WEAK/FRAGILE)
+If missing, tell the user:
+```
+Layer 3 requires a Google API key for Gemini (task generation + judging).
+Claude runs the tasks itself — no Anthropic API key needed.
 
-If `--deep` was NOT requested but some skills scored 2 stars or below:
-- Suggest: "3 skills scored poorly. Want me to run deep evaluation on those? Requires ANTHROPIC_API_KEY and GEMINI_API_KEY in your .env."
+Create a .env file in your project root with:
+
+  GOOGLE_API_KEY=your-key-here
+  GEMINI_MODEL=gemini-2.0-flash  # optional, this is the default
+
+Make sure .env is in your .gitignore.
+```
+Stop here if the key is missing.
+
+### 6.2: Discover available repositories
+
+Scan for repositories the user has cloned:
+```bash
+for dir in repositories/*/; do
+  if [ -d "$dir/.git" ]; then
+    name=$(basename "$dir")
+    # Read first line of README for description
+    desc=$(head -5 "$dir/README.md" 2>/dev/null | grep -v '^#' | grep -v '^$' | head -1)
+    echo "$name|$dir|$desc"
+  fi
+done
+```
+
+Write the repo info to a JSON file for the task generator:
+```json
+[
+  {"name": "repo-name", "path": "repositories/repo-name", "description": "brief description from README"}
+]
+```
+Save to `.tmp/deep-eval/repos.json`.
+
+If no repositories are found, Layer 3 falls back to knowledge-only tasks (task 1 only, no repo-based tasks 2-4). Warn the user: "No repositories found in repositories/ — Layer 3 will only run knowledge tests, not repo-based A/B tests."
+
+### 6.3: Screen skills for testability
+
+Before asking the user to select skills, run the screening step to let Gemini decide which skills can actually be A/B tested:
+
+```bash
+uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval screen-skills skills/
+```
+
+This outputs JSON with `testable` and `not_testable` lists, each with reasons. **Save the screening output to `.tmp/deep-eval/skill-screening.json`** so the user can inspect why each skill was or wasn't considered testable.
+
+Use this to inform the skill selection — show the user which skills Gemini flagged as not testable and why (e.g., "requires MCP connection", "orchestrates tools rather than teaching patterns").
+
+### 6.4: Confirm skill selection
+
+If the user already selected skills in Step 0 (round 2), cross-reference with the screening results. If any of their selections were flagged as not testable, warn them:
+
+```
+Gemini flagged these skills as poor A/B candidates:
+  - brainstorming: "Multi-step interactive workflow with user approval gates"
+  - verification-loop: "Orchestrates tools (mypy, ruff, pytest) rather than teaching patterns"
+
+Proceed anyway, or remove them?
+```
+
+If the user hasn't selected skills yet, present the selection using screening results to pre-check/uncheck.
+
+Show estimated cost: ~13 Gemini API calls per skill (4 tasks × 3 judge votes + 1 task generation). Confirm before proceeding.
+
+### 6.5: Run A/B tests
+
+**Create temp directory:**
+```bash
+uv run .ai-workspace/scripts/mktmpdir.py deep-eval 2>/dev/null || mkdir -p .tmp/deep-eval
+```
+
+**For each selected skill:**
+
+**a. Generate 4 tasks** using Gemini:
+```bash
+uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval generate-tasks <SKILL_DIR> [--red-team] --repos-file .tmp/deep-eval/repos.json
+```
+This outputs JSON with 4 tasks:
+- Task 1: Knowledge test (no repo)
+- Tasks 2-4: Repo-based tasks (code review, code writing, debugging — on the user's actual repositories)
+
+**Save the task definitions to `.tmp/deep-eval/<skill>_tasks.json`** so the user can inspect exactly what tasks were used for A/B testing.
+
+**b. Spawn ALL 8 subagents in parallel** (4 with-skill + 4 without-skill) in a single message with multiple Agent tool calls. This is the key speed optimization — don't run tasks sequentially.
+
+For each task, spawn 2 subagents:
+
+**With-skill agent prompt:**
+```
+You have the following skill loaded:
+
+<skill>
+[full SKILL.md content]
+</skill>
+
+YOUR TASK: [task description from Gemini]
+
+IMPORTANT RULES:
+- You have READ-ONLY access to the codebase. You may use Read, Bash(grep/find/cat), and other read tools.
+- Do NOT use Edit, Write, or any tool that modifies files. Do NOT run git commit, git push, or any destructive command.
+- Respond with your analysis, review, or code directly in your response text.
+- Be specific and reference actual files, line numbers, and code patterns you find.
+- Keep your response under 800 words.
+[If task has a repo]: Work in the repository at: [repo path]
+```
+
+**Without-skill agent prompt:**
+```
+YOUR TASK: [same task description]
+
+IMPORTANT RULES:
+- You have READ-ONLY access to the codebase. You may use Read, Bash(grep/find/cat), and other read tools.
+- Do NOT use Edit, Write, or any tool that modifies files. Do NOT run git commit, git push, or any destructive command.
+- Respond with your analysis, review, or code directly in your response text.
+- Be specific and reference actual files, line numbers, and code patterns you find.
+- Keep your response under 800 words.
+[If task has a repo]: Work in the repository at: [repo path]
+```
+
+After all 8 subagents complete, save each response to temp files:
+- `.tmp/deep-eval/<skill>_task<N>_with.txt`
+- `.tmp/deep-eval/<skill>_task<N>_without.txt`
+
+**CRITICAL: Save the COMPLETE agent response text using the Write tool. Do NOT summarize, abbreviate, or paraphrase — the judge must see exactly what the agent produced, word for word. If an agent response is very long, save it in full anyway. The judge script truncates to 3000 chars internally, so you don't need to worry about length — but the full text must be on disk for reproducibility.**
+
+**c. Judge all 4 pairs.** For each task, run the judge with the skill file for context-aware judging:
+```bash
+uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval judge \
+  "<TASK_DESCRIPTION>" \
+  .tmp/deep-eval/<skill>_task<N>_with.txt \
+  .tmp/deep-eval/<skill>_task<N>_without.txt \
+  [--red-team] \
+  --skill-file <SKILL_DIR>/SKILL.md
+```
+
+**d. Verify no changes were made** to any repo.
+
+Before running any subagents (at the start of step 6.4), record each repo's current state:
+```bash
+for dir in repositories/*/; do
+  if [ -d "$dir/.git" ]; then
+    name=$(basename "$dir")
+    git -C "$dir" status --porcelain 2>/dev/null | wc -l > .tmp/deep-eval/repo_snapshot_${name}.txt
+  fi
+done
+```
+
+After all subagents complete, compare with the snapshot:
+```bash
+for dir in repositories/*/; do
+  if [ -d "$dir/.git" ]; then
+    name=$(basename "$dir")
+    before=$(cat .tmp/deep-eval/repo_snapshot_${name}.txt 2>/dev/null || echo "0")
+    after=$(git -C "$dir" status --porcelain 2>/dev/null | wc -l)
+    if [ "$after" -gt "$before" ]; then
+      echo "WARNING: $dir has new changes that weren't there before testing"
+    fi
+  fi
+done
+```
+
+**NEVER run `git checkout .`, `git stash`, `git restore`, or any command that modifies repository state.** The user may have uncommitted work in these repos. If new changes are detected, only WARN — let the user decide what to do.
+
+### 6.6: Aggregate results
+
+For each skill, across all 4 tasks:
+- Count wins (with_skill), losses (without_skill), ties, and **inconclusive** results
+- If 2+ tasks are inconclusive, the skill verdict is **INCONCLUSIVE** — the test didn't work, not that the skill is bad. Report this clearly: "A/B test was inconclusive — responses didn't produce measurable differences. This doesn't mean the skill is useless, just that it couldn't be tested this way."
+- Standard mode verdict (if enough conclusive results): **KEEP** (wins > losses and wins > ties), **HURTS** (losses > wins), **NO IMPACT** (otherwise)
+- Red-team mode verdict: **STRONG** (score ≥ 0.80), **WEAK** (score ≥ 0.50), **FRAGILE** (score < 0.50)
+
+### 6.7: Save the detailed Layer 3 log
+
+Write to `evaluate-setup-deep-log.md` (if that file exists, append a number: `evaluate-setup-deep-log-2.md`, etc.). This log is always saved to a file, never printed to terminal — it's too long.
+
+```markdown
+# Layer 3 Deep Evaluation Log
+
+**Date:** [today]
+**Skills tested:** [list]
+**Repositories used:** [list]
+**Mode:** standard / red-team
+
+## How This Evaluation Works
+
+For each skill below, we ran 4 tasks: 1 knowledge question (can Claude recall
+the skill's rules?) and 3 tasks on your actual repositories (does the skill
+change how Claude reviews, writes, or debugs real code?).
+
+Each task was run twice — once with the skill loaded, once without. The
+responses were sent to Gemini as a blind judge (it doesn't know which is which).
+Gemini voted 3 times per task; majority wins. If both responses were equally
+unhelpful or off-topic, the judge marked the test as inconclusive instead of
+picking a winner.
+
+No files were modified during testing — all repository access was read-only.
+
+## Skill Screening Results
+
+Gemini evaluated each skill for A/B testability before testing began.
+Full screening output: `.tmp/deep-eval/skill-screening.json`
+
+**Testable:**
+- [skill-name] — "[reason from screening]"
+- ...
+
+**Not testable:**
+- [skill-name] — "[reason from screening]"
+- ...
+
+---
+
+## skill-name                                    KEEP
+
+> Task definitions: `.tmp/deep-eval/<skill>_tasks.json`
+
+### Task 1 (knowledge): [task description]
+
+**Response WITH skill:**
+> [full response text]
+
+**Response WITHOUT skill:**
+> [full response text]
+
+**Gemini Judgment:**
+- Vote 1: with_skill (good test, unique) — "[reasoning excerpt]"
+- Vote 2: with_skill (good test, unique) — "[reasoning excerpt]"
+- Vote 3: tie (good test, redundant) — "[reasoning excerpt]"
+- **Verdict: with_skill (HIGH confidence) | Redundancy: unique**
+
+---
+
+### Task 2 (review on repo-name): [task description]
+
+**Response WITH skill:**
+> [full response text]
+
+**Response WITHOUT skill:**
+> [full response text]
+
+**Gemini Judgment:**
+- Vote 1: with_skill (good test) — "[reasoning]"
+- Vote 2: without_skill (good test) — "[reasoning]"
+- Vote 3: with_skill (good test) — "[reasoning]"
+- **Verdict: with_skill (LOW confidence)**
+
+---
+
+### Task 3 (write on repo-name): [task description]
+
+**Response WITH skill:**
+> [full response text]
+
+**Response WITHOUT skill:**
+> [full response text]
+
+**Gemini Judgment:**
+- Vote 1: inconclusive (poor test — "both responses asked for clarification instead of answering") — "[reasoning]"
+- Vote 2: inconclusive (poor test — "neither response addressed the task") — "[reasoning]"
+- Vote 3: tie (poor test) — "[reasoning]"
+- **Verdict: INCONCLUSIVE (test quality: poor)**
+
+---
+
+### Task 4 (debug on repo-name): [task description]
+...
+
+---
+
+### Skill Verdict: KEEP (3 wins, 0 losses, 1 tie) | Redundancy: unique
+```
+
+Tell the user: "Layer 3 detailed log saved to `<filename>`."
+
+### 6.8: Add Layer 3 summary to the main report
+
+If L1+L2 also ran, add a short block after each tested skill's L2 rubric:
+
+```
+Layer 3 (A/B): KEEP — 3 wins, 0 losses, 1 tie (HIGH confidence)
+  Redundancy signal: unique — skill taught conventions Claude didn't know
+  See evaluate-setup-deep-log.md for full details.
+```
+
+When the redundancy signal is "redundant" across most tasks, include that in the verdict explanation:
+```
+Layer 3 (A/B): NO IMPACT — 1 win, 1 loss, 2 ties (LOW confidence)
+  Redundancy signal: redundant — both agents applied the same conventions,
+  meaning Claude already knows this content without the skill
+  See evaluate-setup-deep-log.md for full details.
+```
+
+If Layer 3 was NOT selected but some skills scored 2 stars or below in L2:
+- Suggest: "N skills scored poorly. Consider running Layer 3 to verify with A/B testing. Requires GOOGLE_API_KEY in your .env."

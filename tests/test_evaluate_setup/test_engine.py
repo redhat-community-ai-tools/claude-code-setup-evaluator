@@ -159,6 +159,80 @@ class TestConfigPresets:
         assert config.rules.get("frontmatter/description-required") == "off"
 
 
+class TestDuplicateDetection:
+    def setup_method(self):
+        from the_evaluator.rules.content.duplicate_detection import reset_duplicate_state
+        reset_duplicate_state()
+        clear_rules()
+        from the_evaluator.rules import register_all_rules
+        register_all_rules()
+
+    def test_identical_skills_detected(self, tmp_path):
+        body = "## Rules\n\nAlways use raise from for exception chaining.\nNever catch bare exceptions.\n"
+        for name in ("skill-a", "skill-b"):
+            d = tmp_path / name
+            d.mkdir()
+            (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Use when writing Python\n---\n{body}")
+        results = lint_directory(str(tmp_path))
+        dupe_diags = [d for r in results for d in r.diagnostics if d.rule_id == "content/duplicate-detection"]
+        assert len(dupe_diags) == 1
+        assert "similar" in dupe_diags[0].message
+
+    def test_different_skills_not_flagged(self, tmp_path):
+        (tmp_path / "security").mkdir()
+        (tmp_path / "security" / "SKILL.md").write_text(
+            "---\nname: security\ndescription: Use when checking security\n---\n"
+            "## Secret Scanning\nGrep for API keys: AIzaSy, sk-ant, ghp_.\nCheck .gitignore coverage.\n"
+        )
+        (tmp_path / "pipeline").mkdir()
+        (tmp_path / "pipeline" / "SKILL.md").write_text(
+            "---\nname: pipeline\ndescription: Use when building pipelines\n---\n"
+            "## Stage Structure\ndef main(argv=None): parse args, load input, process, save output with metadata.\n"
+        )
+        results = lint_directory(str(tmp_path))
+        dupe_diags = [d for r in results for d in r.diagnostics if d.rule_id == "content/duplicate-detection"]
+        assert len(dupe_diags) == 0
+
+    def test_common_boilerplate_not_inflated(self, tmp_path):
+        """TF-IDF should downweight common words so skills sharing only boilerplate don't match."""
+        boilerplate = "import os\nimport sys\nfrom pathlib import Path\ndef main():\n    return\n"
+        (tmp_path / "skill-x").mkdir()
+        (tmp_path / "skill-x" / "SKILL.md").write_text(
+            "---\nname: skill-x\ndescription: Use when doing X\n---\n"
+            f"{boilerplate}\n## Credential Management\nLoad secrets from dotenv. Validate required vars.\n"
+        )
+        (tmp_path / "skill-y").mkdir()
+        (tmp_path / "skill-y" / "SKILL.md").write_text(
+            "---\nname: skill-y\ndescription: Use when doing Y\n---\n"
+            f"{boilerplate}\n## Data Pipeline\nEvery stage outputs metadata with generated_at timestamp.\n"
+        )
+        results = lint_directory(str(tmp_path))
+        dupe_diags = [d for r in results for d in r.diagnostics if d.rule_id == "content/duplicate-detection"]
+        assert len(dupe_diags) == 0
+
+    def test_high_similarity_above_threshold(self, tmp_path):
+        """Two skills with 90%+ shared distinctive content should be flagged."""
+        shared = (
+            "## Team API Conventions\n\n"
+            "Always set timeout to 30 seconds on requests.\n"
+            "Retry transient failures: 429, 500, 502, 503, 504.\n"
+            "Never retry permanent failures: 400, 401, 403, 404.\n"
+            "Log method, URL, status code, duration.\n"
+            "Validate response structure before accessing fields.\n"
+        )
+        (tmp_path / "api-v1").mkdir()
+        (tmp_path / "api-v1" / "SKILL.md").write_text(
+            f"---\nname: api-v1\ndescription: Use when calling APIs\n---\n{shared}"
+        )
+        (tmp_path / "api-v2").mkdir()
+        (tmp_path / "api-v2" / "SKILL.md").write_text(
+            f"---\nname: api-v2\ndescription: Use when calling APIs v2\n---\n{shared}\nAlso check rate limits.\n"
+        )
+        results = lint_directory(str(tmp_path))
+        dupe_diags = [d for r in results for d in r.diagnostics if d.rule_id == "content/duplicate-detection"]
+        assert len(dupe_diags) == 1
+
+
 class TestLint:
     def setup_method(self):
         clear_rules()
