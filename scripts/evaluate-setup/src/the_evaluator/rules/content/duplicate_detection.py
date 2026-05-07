@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
 from the_evaluator.engine.types import (
     DiagnosticLocation,
     ReportDescriptor,
@@ -11,6 +8,7 @@ from the_evaluator.engine.types import (
     RuleMeta,
     Severity,
 )
+from the_evaluator.utils.similarity import tfidf_similarity
 
 SIMILARITY_THRESHOLD = 0.85
 
@@ -21,24 +19,6 @@ _duplicates_reported: set[tuple[str, str]] = set()
 def reset_duplicate_state() -> None:
     _all_skill_texts.clear()
     _duplicates_reported.clear()
-
-
-def _tfidf_similarity(text_a: str, text_b: str) -> float:
-    """Compute cosine similarity between two texts using TF-IDF vectors.
-
-    TF-IDF naturally downweights common words (import, def, return, the)
-    and upweights distinctive terms, avoiding the false-positive inflation
-    that word-level Jaccard produces on skills sharing boilerplate.
-    """
-    if not text_a.strip() or not text_b.strip():
-        return 0.0
-    vectorizer = TfidfVectorizer()
-    try:
-        tfidf_matrix = vectorizer.fit_transform([text_a, text_b])
-    except ValueError:
-        return 0.0
-    sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-    return float(sim[0][0])
 
 
 class DuplicateDetection:
@@ -69,7 +49,7 @@ class DuplicateDetection:
             if pair in _duplicates_reported:
                 continue
 
-            similarity = _tfidf_similarity(skill.body, other_text)
+            similarity = tfidf_similarity(skill.body, other_text)
             if similarity >= SIMILARITY_THRESHOLD:
                 _duplicates_reported.add(pair)
                 context.report(

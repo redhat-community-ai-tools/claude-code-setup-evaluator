@@ -16,6 +16,7 @@ class TargetType(str, Enum):
     COMMAND = "command"
     CLAUDE_MD = "claude_md"
     HOOKS = "hooks"
+    AGENT = "agent"
 
 
 class RuleCategory(str, Enum):
@@ -117,7 +118,28 @@ class ParsedHooks:
     parse_errors: list[str] = field(default_factory=list)
 
 
-ParsedFile = ParsedSkill | ParsedCommand | ParsedClaudeMd | ParsedHooks
+@dataclass
+class ParsedAgent:
+    dir_path: str
+    file_name: str
+    agent_md_path: str
+    raw_content: str
+    frontmatter: dict[str, Any]
+    raw_frontmatter: str
+    frontmatter_start_line: int
+    body: str
+    body_start_line: int
+    referenced_skills: list[str]
+    disallowed_tools: list[str]
+    allowed_tools: list[str]
+    model: str | None
+    sibling_files: dict[str, list[str]]
+    files: list[str]
+    parse_errors: list[str] = field(default_factory=list)
+    tokens: int = 0
+
+
+ParsedFile = ParsedSkill | ParsedCommand | ParsedClaudeMd | ParsedHooks | ParsedAgent
 
 
 @dataclass
@@ -140,6 +162,10 @@ class RuleContext:
     @property
     def hooks(self) -> ParsedHooks | None:
         return self.target if isinstance(self.target, ParsedHooks) else None
+
+    @property
+    def agent(self) -> ParsedAgent | None:
+        return self.target if isinstance(self.target, ParsedAgent) else None
 
 
 @dataclass

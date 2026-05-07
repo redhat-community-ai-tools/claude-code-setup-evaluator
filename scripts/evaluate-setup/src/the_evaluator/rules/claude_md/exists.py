@@ -10,18 +10,16 @@ from the_evaluator.engine.types import (
     TargetType,
 )
 
-MAX_LINES = 300
 
-
-class ClaudeMdLineCount:
+class ClaudeMdExists:
     meta = RuleMeta(
-        id="claude-md/line-count",
+        id="claude-md/exists",
         default_severity=Severity.WARNING,
         fixable=False,
-        description="CLAUDE.md should be under 300 lines — bloated files cause Claude to ignore instructions",
-        category=RuleCategory.CONTENT,
+        description="Project should have a CLAUDE.md with project-specific instructions",
+        category=RuleCategory.STRUCTURAL,
         messages={
-            "too_long": "CLAUDE.md is {{lines}} lines — recommended maximum is 300. Bloated files cause Claude to ignore your actual instructions.",
+            "not_found": "No CLAUDE.md found — consider creating one with project-specific instructions (build commands, test runners, code style). See https://code.claude.com/docs/en/best-practices",
         },
         target_type=TargetType.CLAUDE_MD,
     )
@@ -31,9 +29,8 @@ class ClaudeMdLineCount:
         if cmd is None:
             return
 
-        if cmd.line_count > MAX_LINES:
+        if any("not found" in e.lower() or "file not found" in e.lower() for e in cmd.parse_errors):
             context.report(ReportDescriptor(
-                message_id="too_long",
-                data={"lines": str(cmd.line_count)},
+                message_id="not_found",
                 location=DiagnosticLocation(file=cmd.file_path, start_line=1),
             ))

@@ -1,15 +1,15 @@
 ---
-description: "Evaluate your Claude Code setup — skills, commands, CLAUDE.md. Identifies what to keep, remove, merge, and fix."
+description: "Evaluate your Claude Code setup — skills, commands, agents, CLAUDE.md. Identifies what to keep, remove, merge, and fix."
 ---
 
 # /evaluate-setup
 
-You are running **the-evaluator** — a health check for Claude Code setups. You will evaluate skills, commands, and CLAUDE.md files, then produce a report with verdicts and recommendations.
+You are running **the-evaluator** — a health check for Claude Code setups. You will evaluate skills, commands, agents, CLAUDE.md files, and hooks, then produce a report with verdicts and recommendations.
 
 ## Hard Rules
 
 1. **Never give a verdict without running the rubric.** You MUST read the actual file content and score all rubric dimensions before assigning a star rating or verdict. Layer 1 error/warning counts are input data, not the verdict — a file with 10 false-positive warnings can still be ★★★★★.
-2. **Every item must have a full rubric score block.** If a rubric score block is missing for any evaluated item, the review is incomplete. Every skill, command, CLAUDE.md, and hook MUST have all dimensions scored with one-sentence justifications before the verdict line. No exceptions, no shortcuts.
+2. **Every item must have a full rubric score block.** If a rubric score block is missing for any evaluated item, the review is incomplete. Every skill, command, agent, CLAUDE.md, and hook MUST have all dimensions scored with one-sentence justifications before the verdict line. No exceptions, no shortcuts.
 3. **Read before you judge.** Do not summarize an item based on Layer 1 output alone. You must read the actual file content to evaluate quality, clarity, and redundancy. Layer 1 catches mechanical issues. Layer 2 catches everything else.
 4. **Don't manufacture problems.** If the setup is good, say so. Not every run needs to produce a list of changes. A healthy setup with minor cosmetic issues should get a clear "your setup is solid" verdict — not a long list of suggestions that creates unnecessary work. Only recommend changes that would make a real difference. "You could trim 50 tokens from this skill" is not a real recommendation. "This skill duplicates another and wastes 1,000 tokens every session" is.
 5. **Always end with a short summary.** Regardless of output format, the last thing the user sees in the terminal must be a short summary (see Step 5b). The full review is either above in the terminal or saved to a file — the summary tells the user the bottom line and where to find details.
@@ -21,7 +21,7 @@ This is a two-round question flow. Ask round 1 first, then ask round 2 based on 
 ### Round 1: Ask these 3 questions together in a single AskUserQuestion call
 
 1. **Scope:** "What do you want to evaluate on Layers 1+2?"
-   - **Everything** — skills + commands + CLAUDE.md + hooks
+   - **Everything** — skills + commands + agents + CLAUDE.md + hooks
    - **Skills only**
    - **A specific item** — ask which one
 
@@ -61,9 +61,9 @@ Select by number (e.g. 1-3, all, 1 2 5):
 
 | Scope | Layers | What runs |
 |---|---|---|
-| Everything | All | L1 all → L2 all → L3 selected skills |
+| Everything | All | L1 all → L2 all → L3 selected skills/agents |
 | Everything | 1 + 2 | L1 all → L2 all |
-| Everything | 3 only | L3 selected skills only |
+| Everything | 3 only | L3 selected skills/agents only |
 | Skills only | All | L1 skills → L2 skills → L3 selected skills |
 | Skills only | 1 + 2 | L1 skills → L2 skills |
 | Skills only | 3 only | L3 selected skills only |
@@ -101,7 +101,7 @@ uv run --project "$PROJECT_DIR" evaluate-setup scan <PATH> [--preset <PRESET>]
 
 Read the JSON output. This gives you per-skill diagnostics with rule IDs, severities, and token counts.
 
-Layer 1 checks include: frontmatter validation, trigger quality, token budget, broken file references, TF-IDF cosine similarity for near-duplicate detection (threshold 0.85), prompt injection patterns, and credential access references.
+Layer 1 checks include: frontmatter validation, description quality (third-person POV, use-case context, length), adaptive token budget and 500-line limit, broken file references, TF-IDF cosine similarity for near-duplicate detection (threshold 0.85), prompt injection patterns (17 patterns), credential access references, and dangerous commands. For commands: prompt injection and credential access checks. For agents: description required, referenced skills exist, disallowedTools format, constraint-body enforcement match, prompt injection, credential access.
 
 ## Step 2: Read Actual Files (Layer 2 Preparation)
 
@@ -110,7 +110,8 @@ Layer 1 checks include: frontmatter validation, trigger quality, token budget, b
 Read the actual content of:
 1. Every skill file (SKILL.md) in the scan path
 2. Every command file (command.md) found nearby
-3. The user's CLAUDE.md files (project and user level)
+3. Every agent file (.md files in `agents/` directories)
+4. The user's CLAUDE.md files (project and user level)
 
 You need the actual content — not just the Layer 1 JSON — to evaluate quality, redundancy, and content.
 
@@ -201,8 +202,8 @@ Score CLAUDE.md on 5 dimensions:
 
 | Dimension | Weight | What to check |
 |---|---|---|
-| **Conciseness** | 0.25 | Under ~300 lines? Can each line pass "would removing this cause mistakes?" |
-| **Signal-to-noise** | 0.25 | Only contains things Claude can't figure out from code? No generic advice? |
+| **Conciseness** | 0.25 | Can each line pass "would removing this cause Claude to make mistakes?" Ruthlessly prune — Anthropic's guidance. |
+| **Signal-to-noise** | 0.25 | Only contains things Claude can't figure out from code? No generic advice like "write clean code", "be helpful", "follow best practices", "think step by step"? These waste tokens — Claude already does them by default. Also check: no standard language conventions (use linters instead), no detailed API docs (link instead), no file-by-file descriptions. |
 | **Skill separation** | 0.20 | Domain-specific rules are in skills (on-demand), not CLAUDE.md (every session)? |
 | **Structure** | 0.15 | Clear sections? Critical rules marked? Scannable? |
 | **Conflict-free** | 0.15 | No contradictions with any skill? |
@@ -229,6 +230,64 @@ For each hook, check:
 - Are there dangerous patterns (rm -rf, force push)?
 - Is this the right mechanism? (hooks are deterministic — 100% execution. If the behavior is advisory, it should be in CLAUDE.md or a skill instead.)
 
+## Step 3e: Evaluate Agents (if agents were found during scan)
+
+*Skip this step if the user chose "Layer 3 only" or no agents were found.*
+
+Score each agent on 5 dimensions:
+
+**Specificity (weight 0.25)**
+- 1: Entirely vague: "implement the fix", "review the code", no concrete procedure
+- 3: Mix of specific phases and vague steps
+- 5: Every phase has specific steps, concrete rules, defined output format
+
+**Constraint clarity (weight 0.25)** — replaces Redundancy (agents define new roles, not knowledge Claude already has)
+- 1: No constraints stated — agent can do anything
+- 3: Constraints exist in body and `disallowedTools` but with gaps
+- 5: Body constraints and `disallowedTools` form a coherent, complete security boundary; every "cannot" in the body is backed by enforcement; scope is explicitly bounded ("you do X — you do not do Y, Z, or W")
+
+**Zero-trust integrity (weight 0.20)** — replaces Trigger quality (agents are dispatched by harness, not description-matched)
+- 1: No mention of input trust; agent blindly follows issue text or PR descriptions
+- 3: States zero-trust principle but verification steps are inconsistent
+- 5: Explicit zero-trust section; all external inputs treated as untrusted; concrete verification steps; injection-like patterns in input are flagged rather than followed
+
+**Token efficiency (weight 0.15)**
+- 1: >5,000 tokens with low value density
+- 3: Under 3,000 tokens, some padding
+- 5: Every token earns its place; procedures are in skills (not inlined), no repeated boilerplate across agents
+
+**Content quality (weight 0.15)**
+- 1: No structure, no output format, no failure handling
+- 3: Decent structure; output format defined but incomplete; failure handling vague
+- 5: Clear sections (identity, inputs, constraints, procedure, output, failure); output format with schema; exit codes documented; handoff contract with pre/post scripts explicit
+
+### Scoring
+
+Same as skills: `round(specificity*0.25 + constraint_clarity*0.25 + zero_trust*0.20 + efficiency*0.15 + quality*0.15)`
+
+Verdicts: **KEEP** (4-5 stars), **REVIEW** (3 stars), **REMOVE** (1-2 stars).
+
+### Per-Agent Output Format
+
+```
+### code                                        ★★★★    KEEP
+  Tokens: 2,456
+  Model: opus
+  Skills: code-implementation
+  DisallowedTools: 14 patterns
+
+  Rubric:
+    Specificity:        5/5  Five named phases with concrete steps
+    Constraint clarity:  4/5  13/14 body constraints enforced by disallowedTools
+    Zero-trust:         5/5  Explicit section; verifies issue claims against code
+    Token efficiency:   3/5  2,456 tokens — secret scanning duplicated with fix.md
+    Content quality:    5/5  Output format, exit codes, failure handling defined
+
+  + Zero-trust principle with concrete verification steps
+  ! 340 tokens of secret scanning text identical to fix.md — extract to shared skill
+  x Skill 'code-implementation' not found (Layer 1 error)
+```
+
 ## Step 4: Cross-Type Optimization (the full picture)
 
 *Skip this step if the user chose "Layer 3 only".*
@@ -248,6 +307,12 @@ This is where you look at the **whole setup** and suggest transformations betwee
 **CLAUDE.md content → Skill** — The reverse. If CLAUDE.md contains domain-specific rules that only matter sometimes (e.g., "when writing data pipelines, use this stage structure"), those waste context in every session. Move them to a skill that loads only when relevant.
 
 **CLAUDE.md content → Hook** — If CLAUDE.md says "always run tests before committing" but Claude sometimes forgets — make it a hook. The hook guarantees it happens.
+
+**Agent ↔ Skill consistency** — Do the agent's referenced skills exist? Do the agent's instructions conflict with the referenced skill's instructions? Is the agent duplicating content that's already in its referenced skills?
+
+**Agent ↔ Agent overlap** — Do multiple agents share large blocks of identical text (zero-trust sections, constraint lists, secret scanning paragraphs)? If so, suggest extraction to a shared skill.
+
+**Agent ↔ CLAUDE.md** — Are there rules in CLAUDE.md that should be in agent definitions? Are there rules in agent definitions that should be in CLAUDE.md?
 
 ### Setup-wide checks:
 
@@ -295,22 +360,23 @@ Full review format:
 This report was generated by the evaluate-setup tool. Here's what each layer did:
 
 **Layer 1 (Static Analysis)** — A Python script automatically scanned every
-skill, command, and CLAUDE.md file. It checked: does each SKILL.md have valid
-frontmatter? Does the description start with "Use when"? Is the skill under
-1,500 tokens? Do referenced files exist? Are any two skills near-duplicates
-(using TF-IDF text similarity)? Are there prompt injection patterns or
-hardcoded credentials? This layer catches mechanical issues — broken files,
-missing fields, structural problems.
+skill, command, agent, and CLAUDE.md file. It checked: does each SKILL.md have
+valid frontmatter? Is the description well-formed (third-person POV, use-case
+context, appropriate length)? Is the skill within the adaptive token budget and
+under 500 lines? Do referenced files exist? Are any two skills near-duplicates?
+For commands: prompt injection and credential access checks. For agents: do
+referenced skills exist? Are disallowedTools entries valid? Do body constraints
+have matching enforcement? This layer catches mechanical issues across four
+dimensions: Readiness, Correctness, Redundancy, and Compliance.
 
 **Layer 2 (Rubric Scoring)** — Claude read every file and scored it on a
-weighted rubric. For skills: Specificity (are instructions actionable?),
-Redundancy (does Claude already do this by default?), Trigger Quality (will it
-activate at the right time?), Token Efficiency (value per token), and Content
-Quality (structure, examples, references). For commands: 7 dimensions including
-whether Claude already does this without the command. For CLAUDE.md: conciseness,
-signal-to-noise, and whether domain rules belong in skills instead. Then Claude
-looked across all items for conflicts, overlaps, and type mismatches (e.g., a
-skill that should be a hook).
+weighted rubric. For skills: Specificity, Redundancy, Trigger Quality, Token
+Efficiency, Content Quality. For agents: Specificity, Constraint Clarity (are
+security boundaries explicit and enforced?), Zero-Trust Integrity (does it
+verify untrusted inputs?), Token Efficiency, Content Quality. For commands:
+7 dimensions including redundancy with defaults. For CLAUDE.md: conciseness,
+signal-to-noise, skill separation. Then Claude looked across all items for
+conflicts, overlaps, and type mismatches.
 
 [If Layer 3 ran:]
 **Layer 3 (A/B Testing)** — This layer answers the question: "does this skill
@@ -333,7 +399,7 @@ files, commit, or push.
 ---
 
 ## Static Analysis (Layer 1)
-  Preset: <preset> | <N> skills, <M> commands, <K> other items
+  Preset: <preset> | <N> skills, <M> commands, <A> agents, <K> other items
   <tokens> tokens total (<pct>% of context budget)
   <errors> errors | <warnings> warnings | <info> info
   <fixable> auto-fixable issues found
@@ -342,6 +408,9 @@ files, commit, or push.
 
 ### Skills
   [Per-skill rubric output, one per skill]
+
+### Agents (if found)
+  [Per-agent rubric output, one per agent]
 
 ### CLAUDE.md (if evaluated)
   [CLAUDE.md rubric output]

@@ -13,7 +13,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from the_evaluator.engine.types import Severity, RuleCategory, RuleMeta, DiagnosticLocation, ReportDescriptor
 from the_evaluator.engine.registry import register_rule, get_all_rules, clear_rules, get_rules_by_category
-from the_evaluator.engine.engine import parse_skill, lint, lint_directory
+from the_evaluator.engine.engine import parse_skill, lint, lint_command, lint_claude_md, lint_directory
 from the_evaluator.engine.suppression import parse_suppressions, is_suppressed
 from the_evaluator.config.loader import load_config
 from the_evaluator.config.presets import PRESETS
@@ -52,10 +52,10 @@ class TestSuppression:
         assert not is_suppressed(suppressions, "other/rule", None)
 
     def test_next_line_suppression(self):
-        content = "line 1\n<!-- evaluator-ignore-next-line: frontmatter/trigger-quality -->\ndescription: broad"
+        content = "line 1\n<!-- evaluator-ignore-next-line: frontmatter/description-quality -->\ndescription: broad"
         suppressions = parse_suppressions(content)
-        assert is_suppressed(suppressions, "frontmatter/trigger-quality", 3)
-        assert not is_suppressed(suppressions, "frontmatter/trigger-quality", 1)
+        assert is_suppressed(suppressions, "frontmatter/description-quality", 3)
+        assert not is_suppressed(suppressions, "frontmatter/description-quality", 1)
 
     def test_multi_rule_suppression(self):
         content = "<!-- evaluator-ignore: rule-a, rule-b -->\ncontent"
@@ -144,9 +144,14 @@ class TestConfigPresets:
             assert rule_id in PRESETS["strict"]
 
     def test_security_disables_non_security(self):
+        security_rule_ids = {
+            "security/no-prompt-injection", "security/no-credential-access",
+            "agent/no-prompt-injection", "agent/no-credential-access",
+            "command/no-prompt-injection", "command/no-credential-access",
+        }
         for rule_id, severity in PRESETS["security"].items():
-            if "security" not in rule_id:
-                assert severity == "off"
+            if rule_id not in security_rule_ids:
+                assert severity == "off", f"{rule_id} should be 'off' in security preset"
 
     def test_load_config_default(self):
         config = load_config()
@@ -233,6 +238,109 @@ class TestDuplicateDetection:
         assert len(dupe_diags) == 1
 
 
+class TestDescriptionQuality:
+    def setup_method(self):
+        clear_rules()
+        from the_evaluator.rules import register_all_rules
+        register_all_rules()
+
+    def test_good_description_passes(self):
+        result = lint(str(FIXTURES / "good-skill"))
+        diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        assert len(diags) == 0
+
+    def test_first_person_flagged(self, tmp_path):
+        d = tmp_path / "fp-skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            '---\nname: fp-skill\ndescription: "I will help you write Python code"\n---\nBody content.\n'
+        )
+        result = lint(str(d))
+        diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        messages = " ".join(d.message for d in diags)
+        assert "first-person" in messages.lower() or "first_person" in messages.lower() or "I will" in messages
+
+    def test_no_use_case_flagged(self, tmp_path):
+        d = tmp_path / "no-context"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            '---\nname: no-context\ndescription: "Python conventions and patterns"\n---\nBody content.\n'
+        )
+        result = lint(str(d))
+        diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        messages = " ".join(d.message for d in diags)
+        assert "use-case" in messages.lower() or "use_case" in messages.lower() or "context" in messages.lower()
+
+    def test_too_short_flagged(self, tmp_path):
+        d = tmp_path / "short-desc"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            '---\nname: short-desc\ndescription: "Code help"\n---\nBody.\n'
+        )
+        result = lint(str(d))
+        diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        messages = " ".join(d.message for d in diags)
+        assert "too vague" in messages.lower() or "too_short" in messages.lower() or "characters" in messages
+
+    def test_too_long_flagged(self, tmp_path):
+        d = tmp_path / "long-desc"
+        d.mkdir()
+        long_desc = "A" * 1030
+        (d / "SKILL.md").write_text(
+            f'---\nname: long-desc\ndescription: "{long_desc}"\n---\nBody.\n'
+        )
+        result = lint(str(d))
+        diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        messages = " ".join(d.message for d in diags)
+        assert "1,024" in messages or "1024" in messages.replace(",", "")
+
+
+class TestCommandSecurity:
+    def setup_method(self):
+        clear_rules()
+        from the_evaluator.rules import register_all_rules
+        register_all_rules()
+
+    def test_good_command_passes(self):
+        result = lint_command(str(FIXTURES / "commands" / "good-command"))
+        security_diags = [d for d in result.diagnostics if d.rule_id.startswith("command/no-")]
+        assert len(security_diags) == 0
+
+    def test_bad_command_injection_detected(self):
+        result = lint_command(str(FIXTURES / "commands" / "bad-command"))
+        injection_diags = [d for d in result.diagnostics if d.rule_id == "command/no-prompt-injection"]
+        assert len(injection_diags) >= 1
+
+    def test_bad_command_credential_detected(self):
+        result = lint_command(str(FIXTURES / "commands" / "bad-command"))
+        cred_diags = [d for d in result.diagnostics if d.rule_id == "command/no-credential-access"]
+        assert len(cred_diags) >= 1
+
+    def test_bad_command_dangerous_command_detected(self):
+        result = lint_command(str(FIXTURES / "commands" / "bad-command"))
+        all_diags = [d for d in result.diagnostics if d.rule_id == "command/no-credential-access"]
+        messages = " ".join(d.message for d in all_diags)
+        assert "sudo" in messages.lower() or "chmod 777" in messages.lower()
+
+
+class TestClaudeMdExists:
+    def setup_method(self):
+        clear_rules()
+        from the_evaluator.rules import register_all_rules
+        register_all_rules()
+
+    def test_missing_claude_md_flagged(self, tmp_path):
+        result = lint_claude_md(str(tmp_path / "CLAUDE.md"))
+        diags = [d for d in result.diagnostics if d.rule_id == "claude-md/exists"]
+        assert len(diags) == 1
+
+    def test_existing_claude_md_passes(self, tmp_path):
+        (tmp_path / "CLAUDE.md").write_text("# Project\n\nUse uv for all Python execution.\n")
+        result = lint_claude_md(str(tmp_path / "CLAUDE.md"))
+        diags = [d for d in result.diagnostics if d.rule_id == "claude-md/exists"]
+        assert len(diags) == 0
+
+
 class TestLint:
     def setup_method(self):
         clear_rules()
@@ -241,8 +349,8 @@ class TestLint:
 
     def test_lint_good_skill(self):
         result = lint(str(FIXTURES / "good-skill"))
-        trigger_warnings = [d for d in result.diagnostics if d.rule_id == "frontmatter/trigger-quality"]
-        assert len(trigger_warnings) == 0
+        quality_warnings = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
+        assert len(quality_warnings) == 0
 
     def test_lint_bad_skill_finds_issues(self):
         result = lint(str(FIXTURES / "bad-skill"))
