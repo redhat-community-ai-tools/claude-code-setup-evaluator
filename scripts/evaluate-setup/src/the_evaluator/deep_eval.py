@@ -262,10 +262,11 @@ def generate_tasks(skill_path: str, red_team: bool, repos_file: str | None):
 @click.argument("response_b_file", type=click.Path(exists=True))
 @click.option("--red-team", is_flag=True, help="Judge as adversarial resistance test")
 @click.option("--skill-file", type=click.Path(exists=True), help="SKILL.md to inform judging criteria")
-def judge(task_description: str, response_a_file: str, response_b_file: str, red_team: bool, skill_file: str | None):
+@click.option("--comparison-type", type=click.Choice(["absolute", "marginal"]), default="absolute", help="absolute = bare vs with-skill, marginal = all-except vs with-skill")
+def judge(task_description: str, response_a_file: str, response_b_file: str, red_team: bool, skill_file: str | None, comparison_type: str):
     """Judge which response is better using Gemini (3 votes, majority wins).
 
-    response_a = with skill, response_b = without skill.
+    response_a = with skill, response_b = baseline (bare or all-except).
     Outputs JSON verdict to stdout.
     """
     gemini_client, gemini_model = _get_gemini_client()
@@ -377,6 +378,7 @@ def judge(task_description: str, response_a_file: str, response_b_file: str, red
         confidence = "LOW"
 
     output = {
+        "comparison_type": comparison_type,
         "votes": votes,
         "pair_verdict": pair_verdict,
         "confidence": confidence,
