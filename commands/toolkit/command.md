@@ -98,6 +98,12 @@ Based on what the user is currently doing, suggest specific tools:
 **If tests exist:**
 → "Found tests. Run `/test-coverage` to see what's untested."
 
+**If there are failing tests or recent errors:**
+→ "Looks like something is broken. The `systematic-debugging` skill will activate — it follows a structured root cause analysis instead of guessing."
+
+**If files are large or complex (>300 lines, deep nesting):**
+→ "Some files here are getting complex. When you're ready to clean up, `refactoring-patterns` will guide measurement-driven refactoring."
+
 **If there are no changes and no clear task:**
 → "Tell me what you want to work on and I'll suggest which tools to use."
 
