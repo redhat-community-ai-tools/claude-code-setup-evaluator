@@ -40,22 +40,19 @@ Wait for answers before proceeding to round 2.
 
 **If the user chose "All" or "Layer 3 only" for layers:** Ask a follow-up question using AskUserQuestion to select which skills to A/B test in Layer 3. The scope from question 1 applies to Layers 1+2 only — Layer 3 always requires explicit skill selection because not all skills are good A/B candidates.
 
-Present the skill list with recommendations. Pre-check skills that teach concrete patterns or rules. Un-check workflow orchestrators, format definitions, or skills that scored too low to justify the cost:
+Present the skill list dynamically. Run `screen-skills` first (Step 6.3) to let Gemini classify each skill as testable or not. Then present the results to the user with pre-checked/unchecked based on Gemini's assessment:
 
 ```
 Which skills should Layer 3 (A/B testing) evaluate?
 
-  1. [x] data-pipeline-patterns    — good candidate (teaches specific patterns)
-  2. [x] python-conventions        — good candidate (teaches specific rules)
-  3. [x] security-check            — good candidate (preventive, can red-team)
-  4. [x] systematic-debugging      — good candidate (teaches structured debugging process)
-  5. [x] refactoring-patterns      — good candidate (teaches measurement-driven refactoring)
-  6. [ ] brainstorming             — poor candidate (workflow gate, not single-turn)
-  7. [ ] writing-plans             — poor candidate (document format, not testable)
-  8. [ ] verification-loop         — poor candidate (orchestrates tools, not single-turn)
+  [For each skill found in the workspace, show Gemini's assessment:]
+  N. [x] <skill-name>    — <Gemini's reason: e.g., "teaches specific patterns">
+  N. [ ] <skill-name>    — <Gemini's reason: e.g., "workflow orchestrator, not single-turn">
 
 Select by number (e.g. 1-3, all, 1 2 5):
 ```
+
+If `screen-skills` hasn't run yet (e.g., user jumped straight to Round 2), run it now before presenting the list. Never hardcode skill names — always discover from the workspace.
 
 **If the user chose file output:** Check if `evaluate-setup-report.md` already exists. If it does, ask the user for a different filename — do NOT overwrite existing reports.
 
@@ -76,7 +73,7 @@ Select by number (e.g. 1-3, all, 1 2 5):
 ## Arguments
 
 `$ARGUMENTS` may include:
-- A path (e.g., `~/.claude/skills/`, `skills/python-conventions/`)
+- A path (e.g., `~/.claude/skills/`, `skills/<skill-name>/`)
 - `--preset strict` or `--preset security` (default: recommended)
 - `--red-team` (adversarial testing for preventive skills in Layer 3)
 - Natural language like "evaluate my setup", "is my python skill any good?"
@@ -343,21 +340,23 @@ This is where you look at the **whole setup** and suggest transformations betwee
 ```
 ## Cross-Type Optimization
 
-  ⟳ Skill → Hook: security-check says "always run pre-commit before pushing" —
+  ⟳ Skill → Hook: <skill> says "always run X before pushing" —
     this should be a hook to guarantee it runs every time, not a skill that
     Claude might skip.
 
-  ⟳ Skill → Command: brainstorming says "you MUST use this before any creative work" —
-    the hard gate makes it behave like a command. Consider making it a /brainstorm
-    command instead.
+  ⟳ Skill → Command: <skill> says "you MUST use this before any creative work" —
+    the hard gate makes it behave like a command. Consider making it a /command
+    instead.
 
-  ⟳ CLAUDE.md → Skill: The "Testing" section in CLAUDE.md (lines 45-60) contains
-    pytest-specific rules that only matter when writing tests. Move to a
-    testing-conventions skill that loads on demand.
+  ⟳ CLAUDE.md → Skill: The "<section>" in CLAUDE.md (lines N-M) contains
+    domain-specific rules that only matter sometimes. Move to a skill that
+    loads on demand.
 
   ✓ No conflicts detected between CLAUDE.md and skills.
   ✓ No redundant content detected across types.
 ```
+
+These are illustrative patterns — always use the actual skill/command names from the workspace being evaluated.
 
 ## Step 5: Produce the Report
 
@@ -583,14 +582,13 @@ If the user already selected skills in Step 0 (round 2), cross-reference with th
 
 ```
 Gemini flagged these skills as poor A/B candidates:
-  - brainstorming: "Multi-step interactive workflow with user approval gates"
-  - writing-plans: "Document format skill, not testable in single-turn"
-  - verification-loop: "Orchestrates tools (mypy, ruff, pytest) rather than teaching patterns"
+  - <skill-name>: "<Gemini's reason>"
+  - <skill-name>: "<Gemini's reason>"
 
 Proceed anyway, or remove them?
 ```
 
-If the user hasn't selected skills yet, present the selection using screening results to pre-check/uncheck.
+If the user hasn't selected skills yet, present the selection using screening results to pre-check/uncheck. Always use Gemini's actual screening output — never hardcode which skills are good or poor candidates.
 
 Show estimated cost: ~25 Gemini API calls per skill (4 tasks × 6 judge votes + 1 task generation). Confirm before proceeding.
 
