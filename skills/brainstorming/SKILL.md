@@ -1,17 +1,13 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Use when the user asks to design, plan, or explore approaches before implementing — creating features, building components, or adding functionality that would benefit from design exploration first."
 ---
 
 # Brainstorming Ideas Into Designs
 
 Help turn ideas into fully formed designs through collaborative dialogue.
 
-<HARD-GATE>
-Do NOT write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
-</HARD-GATE>
-
-"Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
+When this skill activates, present a design before writing code. The design can be short (a few sentences for simple projects) — scale it to the complexity of the task. Get the user's approval before proceeding to implementation.
 
 ## Process
 
