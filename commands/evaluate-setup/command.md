@@ -109,11 +109,13 @@ Layer 1 checks include: frontmatter validation, description quality (third-perso
 
 Read the actual content of:
 1. Every skill file (SKILL.md) in the scan path
-2. Every command file (command.md) found nearby
-3. Every agent file (.md files in `agents/` directories)
-4. The user's CLAUDE.md files (project and user level)
+2. **All files in each skill's `skills/` subdirectory** (if it exists) — these are reference files with detailed content. Score the COMBINED content (SKILL.md + reference files), not just the entry point.
+3. **Each skill's `guidelines.md`** (if it exists) — behavioral rules, hard limits, safety constraints
+4. Every command file (command.md) found nearby
+5. Every agent file (.md files in `agents/` directories)
+6. The user's CLAUDE.md files (project and user level)
 
-You need the actual content — not just the Layer 1 JSON — to evaluate quality, redundancy, and content.
+You need the actual content — not just the Layer 1 JSON — to evaluate quality, redundancy, and content. For skills with reference files, the SKILL.md is just the entry point — the real content is in the reference files.
 
 ## Step 3: Evaluate Each Skill (Layer 2)
 
@@ -164,12 +166,19 @@ A skill is NOT redundant if it provides specific, actionable rules. "Always use 
 - 4: Well-sized, minor optimization possible
 - 5: Every token earns its place; high value-to-token ratio
 
+Note: Token budget applies to the SKILL.md file only (the always-loaded cost). Reference files in a `skills/` subdirectory load on demand and cost zero tokens until Claude reads them. A 200-token SKILL.md with 2,000 tokens of reference files is more efficient than a 2,200-token monolithic SKILL.md. If a skill's SKILL.md is over ~800 tokens and contains detailed procedures, tables, or multi-step processes, recommend splitting into a thin SKILL.md + reference files (progressive disclosure — Anthropic-recommended pattern). This is not an error — just a recommendation.
+
 **Content quality (weight 0.15)**
 - 1: No structure, no examples, broken references
 - 2: Minimal structure, vague instructions
 - 3: Decent structure, some examples, no broken references
 - 4: Well-organized with examples and clear sections
 - 5: Well-organized, includes examples, references valid files, covers edge cases
+
+**Additional quality checks (score within Content quality):**
+- **Cognitive load:** For workflow-type skills with sequential steps — are steps digestible? Does any single phase require synthesizing more than 3 inputs? Are there checkpoints for long processes? Score N/A for pure knowledge skills.
+- **Error handling:** For skills that execute commands, call APIs, or reference external tools — does the skill define what happens when something fails? Are escalation paths clear? Score N/A for pure knowledge skills that only teach conventions.
+- **Guidelines separation:** If the skill has a `guidelines.md`, evaluate it: are behavioral rules specific and enforceable? Do they conflict with CLAUDE.md? If the skill does NOT have `guidelines.md` but contains hard limits or safety constraints inline (MUST/NEVER/ALWAYS), recommend extracting to `guidelines.md` for better separation of concerns. This is not a requirement — not having guidelines.md is not a negative score. It's a recommendation for complex skills.
 
 ### Scoring
 
@@ -314,6 +323,10 @@ This is where you look at the **whole setup** and suggest transformations betwee
 
 **Agent ↔ CLAUDE.md** — Are there rules in CLAUDE.md that should be in agent definitions? Are there rules in agent definitions that should be in CLAUDE.md?
 
+**Skill structure optimization** — For skills with SKILL.md over ~800 tokens that contain detailed procedures, tables, or multi-step processes: recommend splitting into a thin SKILL.md (~200 tokens with routing) + reference files in a `skills/` subdirectory. This follows Anthropic's progressive disclosure pattern — reference files cost zero context until Claude reads them on demand. Not an error if missing — just a recommendation for improving token efficiency.
+
+**Guidelines extraction** — For skills that contain hard limits, safety constraints, or behavioral rules (MUST/NEVER/ALWAYS patterns) inline in SKILL.md: recommend extracting to a separate `guidelines.md` file. This improves separation of concerns (what to do vs. how to behave) and makes behavioral rules easier to evaluate. Not a requirement — just a recommendation for complex skills.
+
 ### Setup-wide checks:
 
 - **Merge candidates**: Skills covering related topics that would be stronger combined
@@ -366,62 +379,110 @@ This report evaluates the Claude Code setup across four dimensions:
 
 Three layers produce the evidence:
 
-**Layer 1 (Static Analysis)** — Python script scans all files mechanically.
-Checks frontmatter, description quality, token budgets, broken references,
-duplicate detection (TF-IDF), injection patterns (17 regexes), credential
-access, and dangerous commands. Feeds into Readiness + Correctness.
+**Layer 1 (Static Analysis)** — A set of Python rules that run
+deterministically on every file. Each rule checks one thing mechanically:
+does the file exist? Does the YAML parse? Are referenced files real? Is the
+description well-formed (third-person, use-case context, length)? Is the
+skill within the token/line budget? Are there prompt injection patterns (17
+regex patterns)? Credential references? Dangerous commands (sudo, chmod 777)?
+For skills with reference files, checks that routing targets exist. For
+agents, checks disallowedTools format and constraint enforcement. Runs in
+seconds, no AI involved, fully reproducible. Feeds into Readiness +
+Correctness.
 
-**Layer 2 (Rubric Scoring)** — Claude reads every file and scores on weighted
-rubric dimensions. For skills: Specificity, Redundancy, Trigger Quality,
-Token Efficiency, Content Quality. For agents: Specificity, Constraint
-Clarity, Zero-Trust Integrity, Token Efficiency, Content Quality. For
-commands: 7 dimensions. For CLAUDE.md: conciseness, signal-to-noise, skill
-separation. Feeds into Redundancy + Compliance.
+**Layer 2 (Rubric Scoring)** — A structured prompt that instructs Claude to
+read every file and score it on weighted rubric dimensions. Claude reads the
+actual content — SKILL.md, reference files, guidelines.md, command.md — and
+judges quality, specificity, redundancy, and compliance with Anthropic's
+published best practices. This is where human-like judgment happens: is this
+skill teaching something Claude doesn't already know? Is the description
+good enough to trigger at the right time? Are behavioral rules specific and
+enforceable? Feeds into Redundancy + Compliance.
 
 [If Layer 3 ran:]
-**Layer 3 (A/B Testing)** — Tests whether skills actually change Claude's
-behavior. For each skill, 3 agents run each task: (A) bare Claude with no
-skills, (B) Claude with all skills EXCEPT the tested one, (C) Claude with
-the tested skill. Gemini judges two comparisons per task: absolute value
-(A vs C: does the skill teach Claude something new?) and marginal value
-(B vs C: does the skill add value beyond what OTHER skills provide?).
-The marginal value is what matters — it determines if the skill earns its
-place in the full setup. Feeds into Redundancy.
+**Layer 3 (A/B Testing)** — Empirical testing that runs ONLY for skills
+(not commands, hooks, or agents). Tests whether a skill actually changes
+Claude's behavior by running the same task under 3 conditions: (A) bare
+Claude with no skills, (B) Claude with all skills EXCEPT the tested one,
+(C) Claude with the tested skill. Gemini generates 4 tasks per skill (1
+knowledge + 3 on real repositories) and judges two comparisons per task:
+absolute value (A vs C: does the skill teach something new?) and marginal
+value (B vs C: does the skill add value beyond what OTHER skills provide?).
+Not all skills are testable — workflow orchestrators and multi-turn
+interactive skills can't be meaningfully A/B tested in a single response.
+Feeds into Redundancy.
 
 ---
 
 ## Inventory
-  [table: type, count, tokens]
+  [table: type, count, tokens, reference files]
 
-## Dimension 1: Readiness
-  "Can each component load and function?"
-  [File existence, YAML parsing, reference resolution — from Layer 1]
-  [Per-type pass/fail with specific issues listed]
+## Skills
 
-## Dimension 2: Correctness
-  "Does each component work as intended and safely?"
-  [Security scan results — injection patterns, credential access, dangerous commands]
-  [Hook configuration review — correct mechanism? dangerous patterns?]
-  [Agent constraint enforcement — body constraints backed by disallowedTools?]
+Go through each skill one by one. For each skill, evaluate all four
+dimensions and give a final verdict:
 
-## Dimension 3: Redundancy
-  "Is each component adding value?"
-  [Layer 2 redundancy scores per skill — table with 1-5 scores]
-  [Layer 3 A/B results per tested skill — absolute + marginal verdicts]
-  [Cross-type duplication — CLAUDE.md/skill overlap, command overlap]
+### skill-name                              ★★★★    KEEP
+  Tokens: [SKILL.md tokens] (+[reference file tokens] in reference files)
+  Reference files: [list or "none"]
+  Guidelines: [yes/no]
 
-## Dimension 4: Compliance
-  "Does it follow published best practices?"
-  [Description quality — third-person POV, use-case context, length]
-  [Token efficiency — within budget, under 500 lines]
-  [Layer 2 quality scores — specificity, trigger quality, content quality]
-  [CLAUDE.md rubric — conciseness, signal-to-noise, structure]
+  **Readiness:** [PASS/FAIL] — file exists, frontmatter valid, references resolve
+  **Correctness:** [PASS/FAIL] — no injection patterns, no credential references,
+    guidelines don't conflict with CLAUDE.md
+  **Redundancy:** [score/5] — [one sentence: what's unique vs what Claude already knows]
+    [If Layer 3 ran for this skill:]
+    Layer 3 (A/B Testing): Tested with 4 Gemini-generated tasks:
+      1. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
+      2. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
+      3. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
+      4. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
+      Overall: Absolute [verdict] ([wins]W/[losses]L/[ties]T) | Marginal [verdict] ([wins]W/[losses]L/[ties]T)
+    [If Layer 3 did NOT run for this skill:]
+    Layer 3: Not tested (skill is [reason: workflow orchestrator / multi-turn / not selected])
+  **Compliance:** [summary of rubric scores]
+    Specificity: [score/5] | Trigger: [score/5] | Token eff: [score/5] | Content: [score/5]
+
+  + What's good
+  ! What could improve
+  x What's broken
+
+[Repeat for each skill]
+
+## Commands
+
+Go through each command. For simple commands that score well, use a
+compact format (one line per dimension). For commands with issues, use
+the full format.
+
+### command-name                            ★★★★    KEEP
+  Tokens: [tokens]
+  Readiness: PASS | Correctness: PASS | Redundancy: [unique/redundant] | Compliance: [score]
+
+[Repeat for each command]
+
+## Hooks
+
+For each hook entry, evaluate:
+  Readiness: [command exists, script exists]
+  Correctness: [no dangerous patterns, correct mechanism]
+
+## CLAUDE.md
+
+### CLAUDE.md                               ★★★★    KEEP
+  Tokens: [tokens] | Lines: [lines]
+
+  **Readiness:** PASS
+  **Correctness:** PASS — no conflicts with skills
+  **Redundancy:** [signal-to-noise score] — [generic advice?]
+  **Compliance:** Conciseness [score] | Signal-to-noise [score] | Skill separation [score] | Structure [score]
+
+## Agents (if found)
+
+[Same per-agent format with all 4 dimensions]
 
 ## Cross-Type Optimization
-  [Type mismatch suggestions — only when genuinely beneficial]
-
-## Final Verdicts by Dimension
-  [4-row table: dimension, score, summary]
+  [Transformation suggestions — only when genuinely beneficial]
 
 ## Suggestions
   [Numbered actionable items]
