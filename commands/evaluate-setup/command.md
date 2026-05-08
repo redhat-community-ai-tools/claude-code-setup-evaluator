@@ -48,9 +48,11 @@ Which skills should Layer 3 (A/B testing) evaluate?
   1. [x] data-pipeline-patterns    — good candidate (teaches specific patterns)
   2. [x] python-conventions        — good candidate (teaches specific rules)
   3. [x] security-check            — good candidate (preventive, can red-team)
-  4. [ ] brainstorming             — poor candidate (workflow gate, not single-turn)
-  5. [ ] writing-plans             — poor candidate (document format, not testable)
-  6. [ ] verification-loop         — poor candidate (orchestrates tools, not single-turn)
+  4. [x] systematic-debugging      — good candidate (teaches structured debugging process)
+  5. [x] refactoring-patterns      — good candidate (teaches measurement-driven refactoring)
+  6. [ ] brainstorming             — poor candidate (workflow gate, not single-turn)
+  7. [ ] writing-plans             — poor candidate (document format, not testable)
+  8. [ ] verification-loop         — poor candidate (orchestrates tools, not single-turn)
 
 Select by number (e.g. 1-3, all, 1 2 5):
 ```
@@ -582,6 +584,7 @@ If the user already selected skills in Step 0 (round 2), cross-reference with th
 ```
 Gemini flagged these skills as poor A/B candidates:
   - brainstorming: "Multi-step interactive workflow with user approval gates"
+  - writing-plans: "Document format skill, not testable in single-turn"
   - verification-loop: "Orchestrates tools (mypy, ruff, pytest) rather than teaching patterns"
 
 Proceed anyway, or remove them?

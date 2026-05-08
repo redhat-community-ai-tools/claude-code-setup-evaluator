@@ -48,6 +48,8 @@ Skills are knowledge that Claude carries in the background. You don't trigger th
 | `security-check` | Detects credential leaks, insecure patterns, LLM-specific risks |
 | `python-conventions` | Dotenv conventions, API client rules, TDD workflow |
 | `data-pipeline-patterns` | Pipeline stage design, validation, circuit breakers |
+| `systematic-debugging` | 4-phase root cause analysis: reproduce, isolate, hypothesize, verify |
+| `refactoring-patterns` | Measurement-driven refactoring with before/after metrics |
 | `verification-loop` | Powers `/verify`, `/review`, `/quality-gate` |
 | `brainstorming` | Design exploration before implementation |
 | `writing-plans` | Creates implementation plans from approved specs |
@@ -108,7 +110,7 @@ Claude: What do you want to evaluate?
 
         ## Evaluation Summary
         Your setup is solid. Found 1 issue that needs attention.
-        Reviewed 6 skills, 17 commands, CLAUDE.md. Total: 8,234 tokens (4%).
+        Reviewed 9 skills, 17 commands, CLAUDE.md. Total: 2,690 tokens (1.3%).
 
         Suggestions:
           1. Remove clean-code-guide skill (100% redundant with Claude defaults)
