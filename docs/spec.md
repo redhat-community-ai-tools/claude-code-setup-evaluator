@@ -3,7 +3,7 @@
 **Status:** v1.3 built · all 3 layers operational
 **Author:** Benjamin Kapner + design review with Claude
 **Last updated:** May 2026
-**Changes from v1.2:** Split command.md into thin command (26KB) + reference files (`layer3-protocol.md`, `report-format.md`) — Layer 3 content loads on demand only when selected. Added Layer 2 autonomy analysis (coercive trigger language, hard gates, broad category intercepts), command size thresholds (15KB warning, 30KB error), and behavioral pattern checks (mandate stacking, autonomy erosion, broad trigger collision). Red-team mode now auto-activates for preventive skills — removed `--red-team` flag requirement. Added structural tests for command.md and SKILL.md files (`tests/test_command_prompts.py`).
+**Changes from v1.2:** Split command.md into thin command + reference files (`layer3-protocol.md`, `report-format.md`) — Layer 3 content loads on demand only when selected. Added Layer 2 autonomy analysis (coercive trigger language, hard gates, broad category intercepts), command size thresholds, and behavioral pattern checks (mandate stacking, autonomy erosion, broad trigger collision). Red-team mode now auto-activates for preventive skills. Added structural tests for command.md and SKILL.md files (`tests/test_command_prompts.py`).
 **Changes from v1.1:** Removed auto-fix (`--fix`). Added Layer 1 rules for commands (2 rules), CLAUDE.md (3 rules), and hooks (1 rule) — total 15 rules across 4 file types. Added interactive Step 0 (ask user about output format and scope before starting). Added cross-type optimization suggestions (skill→hook, skill→command, CLAUDE.md→skill, etc.). Added numbered suggestions in summary so users can say "do 1, skip 2". Added hard rules: never verdict without rubric, don't manufacture problems.
 **Changes from v1.0:** Rule engine architecture for Layer 1 (inspired by [skilleval](https://github.com/natifridman/skilleval)), config presets, inline suppression, structured rubric scoring for Layer 2 (inspired by [deepeval](https://github.com/confident-ai/deepeval)), red-team mode for preventive skills (inspired by [promptfoo](https://github.com/promptfoo/promptfoo) and [giskard](https://github.com/Giskard-AI/giskard)), repeat-and-vote judge reliability. Single-skill mode, CLAUDE.md evaluation rubric, command evaluation rubric.
 
@@ -17,7 +17,7 @@ It works in three layers, each going deeper than the last:
 
 **Layer 1 — Count and check (rule engine, no AI).** A pluggable rule engine scans your setup files — skills, commands, CLAUDE.md, and hooks. Each check is a self-contained rule — its own file, its own test, registered in a central registry. Out of the box, the engine ships with 15 rules across 4 file types: skill rules (token counting, duplicate detection, broken references, format validation, missing descriptions, security scanning), command rules (description required, script existence), CLAUDE.md rules (line count, generic advice detection, skill duplication), and hooks rules (structure validation, dangerous patterns). You can configure which rules run via presets (`recommended`, `strict`, `security`) or override individual rules in a `.evaluator.yaml` config file. No AI involved — just parsing and math. Outputs a JSON report with per-rule diagnostics.
 
-**Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against structured rubrics. Skills are scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality). Trigger quality includes autonomy impact analysis — detecting coercive language ("MUST use this"), hard gates, and broad category intercepts that override user control. CLAUDE.md is scored on its own rubric (conciseness, signal-to-noise, skill separation, structure, conflict-free) based on [official Claude Code best practices](https://code.claude.com/docs/en/best-practices). Commands are scored on description quality, instruction clarity, script integrity, scope, token efficiency (with size thresholds: 15KB warning, 30KB error), redundancy with defaults, and robustness. Setup-wide behavioral pattern checks detect mandate stacking (multiple skills with coercive language), autonomy erosion (broad triggers + hard gates), and broad trigger collisions.
+**Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against structured rubrics. Skills are scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality). Trigger quality includes autonomy impact analysis — detecting coercive language ("MUST use this"), hard gates, and broad category intercepts that override user control. CLAUDE.md is scored on its own rubric (conciseness, signal-to-noise, skill separation, structure, conflict-free) based on [official Claude Code best practices](https://code.claude.com/docs/en/best-practices). Commands are scored on description quality, instruction clarity, script integrity, scope, token efficiency (with size thresholds), redundancy with defaults, and robustness. Setup-wide behavioral pattern checks detect mandate stacking (multiple skills with coercive language), autonomy erosion (broad triggers + hard gates), and broad trigger collisions.
 
 **Layer 3 — A/B experiment (optional).** Gemini screens skills for testability, then generates 4 test tasks per skill (1 knowledge question + 3 repo-based tasks using the user's actual repositories). Claude Code runs each task twice via subagents — once with the skill loaded, once without. Then Gemini judges each pair with a redundancy-first approach: the primary question (~70%) is "did one response apply specific conventions from the skill that the other missed?" using repeat-and-vote (3 judge calls per pair, majority wins). For preventive skills (detected automatically via negation patterns), adversarial tasks are generated instead of standard tasks — testing whether the skill actually prevents bad behavior. All intermediate artifacts (screening results, task definitions, agent responses) are saved to `.tmp/deep-eval/` for inspection.
 
@@ -108,7 +108,7 @@ Uses the Claude session already running.
 
 **Layer 3: The science experiment** (optional, requires `GOOGLE_API_KEY`)
 
-For users who want empirical proof, not just an expert opinion. This requires `GOOGLE_API_KEY` in your `.env` file (no Anthropic API key needed — Claude runs tasks via subagents in the current session). The engine automatically selects the right testing mode per skill: **standard** for skills that teach patterns, **red-team** (adversarial) for preventive skills that contain negation patterns ("never", "do not", "must not"). No flag needed — the engine detects this.
+For users who want empirical proof, not just an expert opinion. This requires `GOOGLE_API_KEY` in your `.env` file (no Anthropic API key needed — Claude runs tasks via subagents in the current session). The engine automatically selects the right testing mode per skill: **standard** for skills that teach patterns, **red-team** (adversarial) for preventive skills that contain negation patterns ("never", "do not", "must not").
 
 **Before testing: skill screening.** Gemini evaluates each skill and decides whether it can be meaningfully A/B tested. Skills that require MCP connections, define multi-step interactive workflows, or orchestrate external tools are flagged as not testable. The screening output is saved to `.tmp/deep-eval/skill-screening.json`.
 
@@ -200,7 +200,7 @@ Layer 2 partially compensates — Claude can review the skill's description and 
 /evaluate-setup [path] [--preset recommended|strict|security]
 ```
 
-Before running, the command asks the user three questions (Step 0): (1) what to evaluate on Layers 1+2 (everything, skills only, or a specific item), (2) which layers to run (1+2 only, all three, or Layer 3 only), and (3) where to put the report (terminal or file). If Layer 3 is selected, a follow-up question asks which skills to A/B test. Preventive skills are automatically tested with adversarial tasks (red-team mode) — no flag needed.
+Before running, the command asks the user three questions (Step 0): (1) what to evaluate on Layers 1+2 (everything, skills only, or a specific item), (2) which layers to run (1+2 only, all three, or Layer 3 only), and (3) where to put the report (terminal or file). If Layer 3 is selected, a follow-up question asks which skills to A/B test. Preventive skills are automatically tested with adversarial tasks (red-team mode).
 
 ```
 /evaluate-setup
@@ -874,15 +874,15 @@ Inspired by [deepeval](https://github.com/confident-ai/deepeval)'s approach of r
 
 **Dimensions and scoring anchors:**
 
-| Dimension | Weight | 1 (worst) | 3 (acceptable) | 5 (best) |
-|---|---|---|---|---|
-| **Specificity** | 0.25 | Entirely vague platitudes, no actionable instructions | Mix of specific and generic; some rules change Claude's behavior | Every instruction is specific, actionable, includes concrete patterns or examples |
-| **Redundancy** | 0.25 | Every instruction duplicates Claude's default behavior | Some unique value, but 50%+ is default behavior | Entirely unique — teaches Claude something it genuinely doesn't know |
-| **Trigger quality** | 0.20 | No description, triggers on everything, or coercive language with broad scope | Description is reasonable but could be more precise | Description precisely targets the right tasks; starts with "Use when"; doesn't overlap with other skills; no coercive language |
-| **Token efficiency** | 0.15 | >3,000 tokens with low value density | Under 1,500 tokens, some padding that could be trimmed | Every token earns its place; high value-to-token ratio |
-| **Content quality** | 0.15 | No structure, no examples, broken references | Decent structure, some examples, no broken references | Well-organized, includes examples, references valid files, covers edge cases |
+| Dimension | 1 (worst) | 3 (acceptable) | 5 (best) |
+|---|---|---|---|
+| **Specificity** | Entirely vague platitudes, no actionable instructions | Mix of specific and generic; some rules change Claude's behavior | Every instruction is specific, actionable, includes concrete patterns or examples |
+| **Redundancy** | Every instruction duplicates Claude's default behavior | Some unique value, but 50%+ is default behavior | Entirely unique — teaches Claude something it genuinely doesn't know |
+| **Trigger quality** | No description, triggers on everything, or coercive language with broad scope | Description is reasonable but could be more precise | Description precisely targets the right tasks; starts with "Use when"; doesn't overlap with other skills; no coercive language |
+| **Token efficiency** | Large with low value density | Reasonable size, some padding that could be trimmed | Every token earns its place; high value-to-token ratio |
+| **Content quality** | No structure, no examples, broken references | Decent structure, some examples, no broken references | Well-organized, includes examples, references valid files, covers edge cases |
 
-**Overall star rating:** `round(weighted_average)` where weights are shown above.
+**Overall star rating:** Weighted average of dimensions, rounded.
 
 **Reasoning requirement:** Each dimension score must include a one-sentence justification citing specific evidence from the skill content. Example: `Specificity: 5/5 — Concrete rules: "use raise from for exception chaining", "define custom exception hierarchies per module"`.
 
@@ -939,13 +939,13 @@ CLAUDE.md is loaded every session, so it has a different evaluation model than s
 
 **CLAUDE.md rubric dimensions:**
 
-| Dimension | Weight | 1 (worst) | 3 (acceptable) | 5 (best) |
-|---|---|---|---|---|
-| **Conciseness** | 0.25 | >500 lines, wall of text with tutorials and explanations | 100-300 lines, some padding that could be trimmed | Under 100 lines, every line passes the "would removing this cause mistakes?" test |
-| **Signal-to-noise** | 0.25 | Full of generic advice Claude already follows ("write clean code", "be helpful") | Mix of useful rules and self-evident advice | Only contains things Claude can't figure out from code — bash commands, non-obvious conventions, project-specific rules |
-| **Skill separation** | 0.20 | Domain-specific rules that should be skills are embedded in CLAUDE.md, loading every session | Some topic-specific content that could be a skill but isn't critical to move | All domain-specific knowledge is in skills; CLAUDE.md only has universally-applicable rules |
-| **Structure** | 0.15 | Unstructured wall of text, no sections, no priorities | Has sections but unclear hierarchy, instructions easy to miss | Clear sections, critical rules marked with emphasis ("IMPORTANT", "YOU MUST"), scannable |
-| **Conflict-free** | 0.15 | Contradicts multiple skills (e.g., CLAUDE.md says "use unittest", skill says "use pytest") | No direct contradictions but some ambiguous overlap | No contradictions with any skill; complementary content only |
+| Dimension | 1 (worst) | 3 (acceptable) | 5 (best) |
+|---|---|---|---|
+| **Conciseness** | Wall of text with tutorials and explanations | Some padding that could be trimmed | Every line passes the "would removing this cause mistakes?" test |
+| **Signal-to-noise** | Full of generic advice Claude already follows ("write clean code", "be helpful") | Mix of useful rules and self-evident advice | Only contains things Claude can't figure out from code — bash commands, non-obvious conventions, project-specific rules |
+| **Skill separation** | Domain-specific rules that should be skills are embedded in CLAUDE.md, loading every session | Some topic-specific content that could be a skill but isn't critical to move | All domain-specific knowledge is in skills; CLAUDE.md only has universally-applicable rules |
+| **Structure** | Unstructured wall of text, no sections, no priorities | Has sections but unclear hierarchy, instructions easy to miss | Clear sections, critical rules marked with emphasis ("IMPORTANT", "YOU MUST"), scannable |
+| **Conflict-free** | Contradicts multiple skills (e.g., CLAUDE.md says "use unittest", skill says "use pytest") | No direct contradictions but some ambiguous overlap | No contradictions with any skill; complementary content only |
 
 **Source:** These dimensions are based on Anthropic's official guidance:
 - "Keep it short and human-readable" — conciseness
@@ -988,13 +988,13 @@ Commands are user-triggered workflows (invoked via `/command-name`). They have d
 
 **Command rubric dimensions:**
 
-| Dimension | Weight | 1 (worst) | 3 (acceptable) | 5 (best) |
-|---|---|---|---|---|
-| **Description quality** | 0.25 | Missing or vague description that doesn't help the user decide when to use the command | Description exists but could be more specific about what the command does | Clear, concise description that tells the user exactly what the command does and when to use it |
-| **Instruction clarity** | 0.25 | Vague instructions, Claude has to guess what to do | Instructions are reasonable but some steps are ambiguous or missing | Every step is clear and specific, Claude knows exactly what to do, in what order, with what output format |
-| **Script integrity** | 0.20 | References scripts that don't exist, broken discovery patterns | Scripts exist but discovery pattern is fragile (hardcoded paths) | Scripts exist, discovery pattern is robust (relative paths, fallbacks), script runs without errors |
-| **Scope appropriateness** | 0.15 | Should be a skill (describes passive behavior, not a user-triggered workflow) | Reasonable as a command but could overlap with an existing skill or command | Clearly a user-triggered workflow, no overlap with skills or other commands |
-| **Token efficiency** | 0.15 | Bloated instructions with excessive examples or redundant steps | Reasonable length with some padding | Concise instructions, every section earns its place |
+| Dimension | 1 (worst) | 3 (acceptable) | 5 (best) |
+|---|---|---|---|
+| **Description quality** | Missing or vague description that doesn't help the user decide when to use the command | Description exists but could be more specific about what the command does | Clear, concise description that tells the user exactly what the command does and when to use it |
+| **Instruction clarity** | Vague instructions, Claude has to guess what to do | Instructions are reasonable but some steps are ambiguous or missing | Every step is clear and specific, Claude knows exactly what to do, in what order, with what output format |
+| **Script integrity** | References scripts that don't exist, broken discovery patterns | Scripts exist but discovery pattern is fragile (hardcoded paths) | Scripts exist, discovery pattern is robust (relative paths, fallbacks), script runs without errors |
+| **Scope appropriateness** | Should be a skill (describes passive behavior, not a user-triggered workflow) | Reasonable as a command but could overlap with an existing skill or command | Clearly a user-triggered workflow, no overlap with skills or other commands |
+| **Token efficiency** | Bloated instructions with excessive examples or redundant steps | Reasonable length with some padding | Concise instructions, every section earns its place |
 
 **What the tool checks mechanically (Layer 1):**
 
@@ -1054,9 +1054,9 @@ These checks look at patterns across the whole setup, not individual items:
 
 Commands use the same progressive disclosure principle as skills. A monolithic command.md loads its entire content when invoked.
 
-- Under 15KB: Fine. Most commands are 1-5KB.
-- 15-30KB: Recommend splitting into a thin command.md (execution steps, rubric) + reference files that Claude reads on demand. Score token efficiency at most 2/5.
-- Over 30KB: Strong recommendation to split. The command is doing too much in one file. Score token efficiency at most 1/5.
+- **Small:** Fine — most commands are a few KB.
+- **Medium:** Recommend splitting into a thin command.md (execution steps, rubric) + reference files that Claude reads on demand.
+- **Large:** Strong recommendation to split. The command is doing too much in one file.
 
 ### 5.4 Layer 3 details: `deep_eval.py`
 
@@ -1112,15 +1112,6 @@ Step 5: Aggregation
     otherwise                      -> NO IMPACT
 ```
 
-**Gemini API call count per skill (standard mode):**
-
-| Call type | Count | Notes |
-|---|---|---|
-| Gemini (generate tasks) | 1 | 4 tasks (1 knowledge + 3 repo-based) |
-| Gemini (judge, 3x per pair) | 12 | 4 pairs x 3 votes each |
-| **Total Gemini calls** | **13** | |
-| Subagent spawns | 8 | 4 tasks x 2 (with/without) |
-
 **Output per subcommand:** JSON to stdout.
 
 **Judge output example:**
@@ -1165,7 +1156,7 @@ Inspired by [promptfoo](https://github.com/promptfoo/promptfoo)'s red-teaming an
 
 Preventive skills tell Claude NOT to do something — "never commit secrets", "always run tests before committing", "never use bare except". The standard A/B test (which measures output quality) can't capture whether these skills actually prevent bad behavior. Red-team mode tests this directly.
 
-**How the engine identifies preventive skills:** Layer 1 includes a heuristic that flags skills containing negation patterns ("never", "do not", "always avoid", "must not", "forbidden"). This flag appears in the Layer 1 JSON. When Layer 3 runs, `deep_eval.py` automatically uses adversarial task generation for flagged preventive skills and standard task generation for the rest. No `--red-team` flag is needed — the engine detects the right mode per skill.
+**How the engine identifies preventive skills:** Layer 1 includes a heuristic that flags skills containing negation patterns ("never", "do not", "always avoid", "must not", "forbidden"). This flag appears in the Layer 1 JSON. When Layer 3 runs, `deep_eval.py` automatically uses adversarial task generation for flagged preventive skills and standard task generation for the rest.
 
 **The flow for one preventive skill:**
 
@@ -1195,7 +1186,6 @@ Step 4: Aggregation
     0-49% held    -> FRAGILE
 ```
 
-**Gemini API call count per skill (red-team mode):** Same as standard — 13 Gemini calls + 8 subagent spawns.
 
 #### 5.4.2 Repeat-and-vote judge reliability
 
@@ -1210,7 +1200,6 @@ For each with/without pair, the judge is called 3 times (same prompt, same respo
 
 **Cost impact:** 12 Gemini judge calls per skill (4 pairs × 3 votes). No separate Claude API costs — subagents run in the current session.
 
-**Approximate cost per skill:** ~13 Gemini calls at ~$0.001-0.01 avg depending on model. A 4-skill deep eval costs a few cents in Gemini API calls.
 
 **Why 3 votes, not 5:** Diminishing returns. 3 votes catches the common case (one judge was wrong) with minimal cost. 5 votes only helps when the judge is essentially flipping a coin, which means the skill difference is genuinely ambiguous — and that's a valid signal to surface as LOW confidence rather than mask with more votes.
 
@@ -1260,14 +1249,14 @@ The prompt instructs Claude to orchestrate the layers:
 - **Layer 2 autonomy analysis:** coercive trigger language detection ("MUST", "ALWAYS"), hard gate detection, broad category intercept detection
 - **Layer 2 CLAUDE.md rubric:** 5 dimensions (conciseness, signal-to-noise, skill separation, structure, conflict-free)
 - **Layer 2 commands rubric:** 7 dimensions (description quality, instruction clarity, script integrity, scope appropriateness, token efficiency with size thresholds, redundancy with defaults, robustness)
-- **Layer 2 command size thresholds:** 15KB warning, 30KB error — recommends progressive disclosure splitting
+- **Layer 2 command size thresholds:** recommends progressive disclosure splitting for large commands
 - **Layer 2 hooks evaluation:** structure validation, dangerous pattern detection, script existence
 - **Layer 2 cross-type optimization:** suggests transformations between types (skill→hook, skill→command, CLAUDE.md→skill, etc.) when genuinely beneficial
 - **Layer 2 behavioral pattern checks:** mandate stacking, autonomy erosion, broad trigger collision
 - **Layer 2 setup-wide recommendations:** merge candidates, overlapping triggers, coverage gaps, total context budget
 - **Numbered suggestions:** final summary with numbered items so users can say "do 1, skip 2"
 - **Layer 3 standard (optional):** A/B evaluation via subagents + Gemini judging with redundancy-first approach (3 votes per pair)
-- **Layer 3 auto red-team:** adversarial testing automatically activates for preventive skills (no flag needed)
+- **Layer 3 auto red-team:** adversarial testing automatically activates for preventive skills
 - **Layer 3 skill screening:** Gemini pre-screens skills for A/B testability before user selects
 - **Layer 3 artifacts:** all intermediate data saved to `.tmp/deep-eval/` (screening, tasks, responses, snapshots)
 - **Command prompt structure:** thin command.md (26KB) + reference files (`layer3-protocol.md`, `report-format.md`) loaded on demand
@@ -1296,7 +1285,7 @@ The prompt instructs Claude to orchestrate the layers:
 
 4. **Layer 2 is only as good as its rubric.** The structured rubric (5 dimensions, 1-5 scoring with anchors) improves consistency across sessions compared to unstructured star ratings, but edge cases will surface. The rubric needs iteration based on real user feedback.
 
-5. **Red-team mode is heuristic-based.** The engine identifies preventive skills by looking for negation patterns ("never", "do not", etc.). Some preventive skills may not use these patterns and will be missed. Some non-preventive skills may use negation and be incorrectly flagged. Red-team mode auto-activates for detected preventive skills — no manual flag needed, but the heuristic is imperfect.
+5. **Red-team mode is heuristic-based.** The engine identifies preventive skills by looking for negation patterns ("never", "do not", etc.). Some preventive skills may not use these patterns and will be missed. Some non-preventive skills may use negation and be incorrectly flagged.
 
 ---
 
@@ -1324,7 +1313,7 @@ Status of questions from original design:
 
 5. **Duplicate similarity threshold.** 0.85 cosine similarity is the current default. Needs calibration on more real skill sets.
 
-6. **Rubric weight calibration.** Current weights (Specificity 0.25, Redundancy 0.25, Trigger 0.20, Token efficiency 0.15, Content quality 0.15) produce reasonable results in testing. Need more user feedback.
+6. **Rubric weight calibration.** Current dimension weights produce reasonable results in testing. Need more user feedback.
 
 7. **Red-team adversarial task quality.** Partially addressed — Gemini generates tasks with repo context which makes them more realistic. Still needs evaluation on more preventive skills.
 

@@ -75,7 +75,6 @@ If `screen-skills` hasn't run yet (e.g., user jumped straight to Round 2), run i
 `$ARGUMENTS` may include:
 - A path (e.g., `~/.claude/skills/`, `skills/<skill-name>/`)
 - `--preset strict` or `--preset security` (default: recommended)
-- Red-team mode auto-activates for preventive skills in Layer 3 (no flag needed)
 - Natural language like "evaluate my setup", "is my python skill any good?"
 
 If no path is given and the user didn't answer Step 0 (e.g., they passed arguments directly), default to scanning skills in the current directory with terminal output, Layers 1+2 only.

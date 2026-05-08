@@ -73,7 +73,7 @@ Proceed anyway, or remove them?
 
 If the user hasn't selected skills yet, present the selection using screening results to pre-check/uncheck. Always use Gemini's actual screening output — never hardcode which skills are good or poor candidates.
 
-Show estimated cost: ~25 Gemini API calls per skill (4 tasks × 6 judge votes + 1 task generation). Confirm before proceeding.
+Confirm before proceeding.
 
 ### 6.5: Run A/B tests (3-condition design)
 
