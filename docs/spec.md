@@ -1,8 +1,9 @@
 # the-evaluator
 
-**Status:** v1.3 built · all 3 layers operational
+**Status:** v1.4 built · all 3 layers operational
 **Author:** Benjamin Kapner + design review with Claude
 **Last updated:** May 2026
+**Changes from v1.3:** Layer 3 A/B testing now generates 3 behavioral repo-based tasks instead of 4 (removed tautological knowledge task). Task generation prompt rewritten to create situations where the skill's rules naturally apply, rather than asking agents to explain rules. This reduces subagent count from 12 to 9 per skill and eliminates inflated absolute scores from reading-comprehension tests.
 **Changes from v1.2:** Split command.md into thin command + reference files (`layer3-protocol.md`, `report-format.md`) — Layer 3 content loads on demand only when selected. Added Layer 2 autonomy analysis (coercive trigger language, hard gates, broad category intercepts), command size thresholds, and behavioral pattern checks (mandate stacking, autonomy erosion, broad trigger collision). Red-team mode now auto-activates for preventive skills. Added structural tests for command.md and SKILL.md files (`tests/test_command_prompts.py`).
 **Changes from v1.1:** Removed auto-fix (`--fix`). Added Layer 1 rules for commands (2 rules), CLAUDE.md (3 rules), and hooks (1 rule) — total 15 rules across 4 file types. Added interactive Step 0 (ask user about output format and scope before starting). Added cross-type optimization suggestions (skill→hook, skill→command, CLAUDE.md→skill, etc.). Added numbered suggestions in summary so users can say "do 1, skip 2". Added hard rules: never verdict without rubric, don't manufacture problems.
 **Changes from v1.0:** Rule engine architecture for Layer 1 (inspired by [skilleval](https://github.com/natifridman/skilleval)), config presets, inline suppression, structured rubric scoring for Layer 2 (inspired by [deepeval](https://github.com/confident-ai/deepeval)), red-team mode for preventive skills (inspired by [promptfoo](https://github.com/promptfoo/promptfoo) and [giskard](https://github.com/Giskard-AI/giskard)), repeat-and-vote judge reliability. Single-skill mode, CLAUDE.md evaluation rubric, command evaluation rubric.
@@ -19,7 +20,7 @@ It works in three layers, each going deeper than the last:
 
 **Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against structured rubrics. Skills are scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality). Trigger quality includes autonomy impact analysis — detecting coercive language ("MUST use this"), hard gates, and broad category intercepts that override user control. CLAUDE.md is scored on its own rubric (conciseness, signal-to-noise, skill separation, structure, conflict-free) based on [official Claude Code best practices](https://code.claude.com/docs/en/best-practices). Commands are scored on description quality, instruction clarity, script integrity, scope, token efficiency (with size thresholds), redundancy with defaults, and robustness. Setup-wide behavioral pattern checks detect mandate stacking (multiple skills with coercive language), autonomy erosion (broad triggers + hard gates), and broad trigger collisions.
 
-**Layer 3 — A/B experiment (optional).** Gemini screens skills for testability, then generates 4 test tasks per skill (1 knowledge question + 3 repo-based tasks using the user's actual repositories). Claude Code runs each task twice via subagents — once with the skill loaded, once without. Then Gemini judges each pair with a redundancy-first approach: the primary question (~70%) is "did one response apply specific conventions from the skill that the other missed?" using repeat-and-vote (3 judge calls per pair, majority wins). For preventive skills (detected automatically via negation patterns), adversarial tasks are generated instead of standard tasks — testing whether the skill actually prevents bad behavior. All intermediate artifacts (screening results, task definitions, agent responses) are saved to `.tmp/deep-eval/` for inspection.
+**Layer 3 — A/B experiment (optional).** Gemini screens skills for testability, then generates 3 repo-based test tasks per skill using the user's actual repositories. Tasks create situations where the skill's rules would naturally apply, rather than asking the agent to explain the rules. Claude Code runs each task twice via subagents — once with the skill loaded, once without. Then Gemini judges each pair with a redundancy-first approach: the primary question (~70%) is "did one response apply specific conventions from the skill that the other missed?" using repeat-and-vote (3 judge calls per pair, majority wins). For preventive skills (detected automatically via negation patterns), adversarial tasks are generated instead of standard tasks — testing whether the skill actually prevents bad behavior. All intermediate artifacts (screening results, task definitions, agent responses) are saved to `.tmp/deep-eval/` for inspection.
 
 Layers 1 and 2 always run. Layer 3 is opt-in via the interactive Step 0 question flow. Requires `GOOGLE_API_KEY` in `.env` (no Anthropic API key needed — subagents run in the current Claude Code session).
 
@@ -114,9 +115,9 @@ For users who want empirical proof, not just an expert opinion. This requires `G
 
 **Standard mode** — tests whether a skill makes Claude's output better:
 
-1. **Gemini writes 4 tasks.** It reads the skill's description and content, then creates 4 tasks: 1 knowledge question (testing recall of the skill's rules) and 3 repo-based tasks (code review, code writing, debugging) that use the user's actual repositories. Task definitions are saved to `.tmp/deep-eval/<skill>_tasks.json`.
+1. **Gemini writes 3 tasks.** It reads the skill's description and content, then creates 3 repo-based tasks (code review, code writing, debugging) that use the user's actual repositories. Tasks create situations where the skill's rules would naturally apply — not knowledge questions that ask the agent to recite the rules. Task definitions are saved to `.tmp/deep-eval/<skill>_tasks.json`.
 
-2. **Claude takes the test twice.** For each task, two subagents are spawned: one with the skill loaded in its prompt, one without. Both have read-only access to the user's repositories. All 8 subagents per skill run in parallel. Responses are saved to `.tmp/deep-eval/<skill>_task<N>_with.txt` and `_without.txt`.
+2. **Claude takes the test twice.** For each task, two subagents are spawned: one with the skill loaded in its prompt, one without. Both have read-only access to the user's repositories. All 6 subagents per skill run in parallel. Responses are saved to `.tmp/deep-eval/<skill>_task<N>_with.txt` and `_without.txt`.
 
 3. **Gemini grades with redundancy-first judging.** For each pair, Gemini receives both responses in randomized order (blinded). The judge evaluates in two steps: (1) Redundancy check (~70%): did one response apply specific conventions from the skill that the other missed? If both responses follow the same conventions equally well, the skill is redundant → verdict is TIE. (2) Quality check (~30%): is one response clearly better? Only matters if step 1 didn't produce a winner. The skill file is provided to the judge as context so it can check for specific convention adherence. Each pair gets 3 blind votes (repeat-and-vote), majority wins. Confidence: HIGH if unanimous, LOW if 2-1 split.
 
@@ -124,9 +125,9 @@ For users who want empirical proof, not just an expert opinion. This requires `G
 
 **Red-team mode** — tests whether preventive skills actually prevent bad behavior:
 
-1. **Gemini writes adversarial tasks.** Instead of helpful tasks, Gemini generates tasks designed to trick Claude into violating the skill's rules — direct contradictions, social engineering attempts, and subtle edge cases.
+1. **Gemini writes 3 adversarial tasks.** Instead of helpful tasks, Gemini generates repo-based tasks designed to trick Claude into violating the skill's rules — direct contradictions, social engineering attempts, and subtle edge cases.
 
-2. **Claude takes the test twice.** Same subagent approach — with skill and without, run in parallel.
+2. **Claude takes the test twice.** Same subagent approach — with skill and without, all 6 subagents run in parallel.
 
 3. **Gemini judges resistance.** Verdict per pair: HELD / BROKE / PARTIAL.
 
@@ -1064,7 +1065,7 @@ Python module within the evaluator package (`scripts/evaluate-setup/src/the_eval
 
 **Subcommands:**
 - `screen-skills <skills-dir>` — Gemini screens which skills are A/B testable
-- `generate-tasks <skill-path>` — Gemini generates 4 test tasks for a skill
+- `generate-tasks <skill-path>` — Gemini generates 3 repo-based test tasks for a skill
 - `judge <task> <file-a> <file-b>` — Gemini judges which response is better (3 votes)
 
 **The flow for one skill (standard mode):**
@@ -1077,22 +1078,23 @@ Step 1: Screening (1 Gemini call, shared across all skills)
 
 Step 2: Task generation (1 Gemini call per skill)
   Send: skill description + body + available repos (from repositories/)
-  Receive: 4 tasks:
-    Task 1: Knowledge question (no repo)
-    Task 2: Code review on a real repo
-    Task 3: Code writing on a real repo
-    Task 4: Debugging/diagnosis on a real repo
+  Receive: 3 repo-based tasks:
+    Task 1: Code review on a real repo
+    Task 2: Code writing on a real repo
+    Task 3: Debugging/diagnosis on a real repo
+  Tasks create situations where the skill's rules would naturally apply,
+  not questions asking the agent to explain the rules.
   Saved to: .tmp/deep-eval/<skill>_tasks.json
 
-Step 3: Execution (8 subagent spawns per skill)
-  For each of the 4 tasks:
+Step 3: Execution (6 subagent spawns per skill)
+  For each of the 3 tasks:
     Spawn subagent WITH the skill text in its prompt (read-only repo access)
     Spawn subagent WITHOUT the skill text (same task, same repo access)
   All 8 subagents run in parallel.
   Responses saved to: .tmp/deep-eval/<skill>_task<N>_with.txt and _without.txt
 
-Step 4: Judging with repeat-and-vote (12 Gemini calls per skill)
-  For each of the 4 with/without pairs:
+Step 4: Judging with repeat-and-vote (9 Gemini calls per skill)
+  For each of the 3 with/without pairs:
     Send both responses to Gemini in randomized order (blinded).
     Include the skill content as context for convention-aware judging.
     Two-step evaluation:
@@ -1100,13 +1102,13 @@ Step 4: Judging with repeat-and-vote (12 Gemini calls per skill)
         conventions from the skill that the other missed?
       Step B — Quality check (~30%): tiebreaker if Step A is inconclusive.
     Repeat 3 times (repeat-and-vote). Majority verdict wins.
-  That's 4 pairs x 3 votes = 12 judge calls.
+  That's 3 pairs x 3 votes = 9 judge calls.
 
 Step 5: Aggregation
   Per-pair verdict = majority of the 3 judge votes.
   Per-pair confidence = HIGH (3-0 unanimous) or LOW (2-1 split).
   Per-pair redundancy signal = unique / redundant / unclear.
-  Per-skill verdict = pattern across the 4 tasks:
+  Per-skill verdict = pattern across the 3 tasks:
     wins > losses and wins > ties  -> KEEP
     losses > wins                  -> HURTS
     otherwise                      -> NO IMPACT
@@ -1163,18 +1165,17 @@ Preventive skills tell Claude NOT to do something — "never commit secrets", "a
 ```
 Step 1: Adversarial task generation (1 Gemini call)
   Send: skill description + full skill body + instruction to generate
-    4 adversarial tasks:
-    - Task 1: Knowledge question testing the skill's rules
-    - Task 2: Direct request contradicting the skill's constraints
-    - Task 3: Social engineering attempt
-    - Task 4: Subtle edge case at the boundary of the skill's rules
-  Receive: 4 adversarial tasks
+    3 adversarial repo-based tasks:
+    - Task 1: Direct request contradicting the skill's constraints
+    - Task 2: Social engineering attempt
+    - Task 3: Subtle edge case at the boundary of the skill's rules
+  Receive: 3 adversarial tasks
   Saved to: .tmp/deep-eval/<skill>_tasks.json
 
-Step 2: Execution (8 subagent spawns)
+Step 2: Execution (6 subagent spawns)
   Same as standard mode — with skill and without, all in parallel.
 
-Step 3: Judging (12 Gemini calls)
+Step 3: Judging (9 Gemini calls)
   Different judge prompt — "Did Response A properly resist the
   adversarial request?" Verdict per pair: HELD / BROKE / PARTIAL
 
@@ -1198,7 +1199,7 @@ For each with/without pair, the judge is called 3 times (same prompt, same respo
 - **3-0 unanimous** → HIGH confidence. All 3 judges agreed.
 - **2-1 split** → LOW confidence. The majority wins, but the dissenting reasoning is preserved in the output so the user can see why one judge disagreed.
 
-**Cost impact:** 12 Gemini judge calls per skill (4 pairs × 3 votes). No separate Claude API costs — subagents run in the current session.
+**Cost impact:** 9 Gemini judge calls per skill (3 pairs × 3 votes). No separate Claude API costs — subagents run in the current session.
 
 
 **Why 3 votes, not 5:** Diminishing returns. 3 votes catches the common case (one judge was wrong) with minimal cost. 5 votes only helps when the judge is essentially flipping a coin, which means the skill difference is genuinely ambiguous — and that's a valid signal to surface as LOW confidence rather than mask with more votes.

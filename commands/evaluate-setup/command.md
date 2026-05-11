@@ -385,4 +385,4 @@ Read `commands/evaluate-setup/report-format.md` for the full report structure, p
 
 *Run this step if the user chose "All" or "Layer 3 only" for layers.*
 
-Read `commands/evaluate-setup/layer3-protocol.md` for the complete Layer 3 protocol: prerequisites, repo discovery, skill screening, A/B test execution (3-condition design with 12 subagents), judging, aggregation, and log format.
+Read `commands/evaluate-setup/layer3-protocol.md` for the complete Layer 3 protocol: prerequisites, repo discovery, skill screening, A/B test execution (3-condition design with 9 subagents), judging, aggregation, and log format.

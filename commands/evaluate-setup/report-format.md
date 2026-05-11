@@ -45,8 +45,9 @@ enforceable? Feeds into Redundancy + Compliance.
 (not commands, hooks, or agents). Tests whether a skill actually changes
 Claude's behavior by running the same task under 3 conditions: (A) bare
 Claude with no skills, (B) Claude with all skills EXCEPT the tested one,
-(C) Claude with the tested skill. Gemini generates 4 tasks per skill (1
-knowledge + 3 on real repositories) and judges two comparisons per task:
+(C) Claude with the tested skill. Gemini generates 3 repo-based tasks per
+skill (code review, code writing, debugging on real repositories) and
+judges two comparisons per task:
 absolute value (A vs C: does the skill teach something new?) and marginal
 value (B vs C: does the skill add value beyond what OTHER skills provide?).
 Not all skills are testable — workflow orchestrators and multi-turn

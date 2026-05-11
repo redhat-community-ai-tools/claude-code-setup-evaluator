@@ -45,7 +45,7 @@ Write the repo info to a JSON file for the task generator:
 ```
 Save to `.tmp/deep-eval/repos.json`.
 
-If no repositories are found, Layer 3 falls back to knowledge-only tasks (task 1 only, no repo-based tasks 2-4). Warn the user: "No repositories found in repositories/ — Layer 3 will only run knowledge tests, not repo-based A/B tests."
+If no repositories are found, Layer 3 cannot run — all tasks require a real repository. Warn the user: "No repositories found in repositories/ — Layer 3 requires at least one cloned repository for A/B testing."
 
 ### 6.3: Screen skills for testability
 
@@ -88,17 +88,15 @@ uv run .ai-workspace/scripts/mktmpdir.py deep-eval 2>/dev/null || mkdir -p .tmp/
 
 The engine auto-detects whether each skill is preventive (contains "never", "do not", "must not" patterns). Preventive skills use red-team mode (adversarial tasks testing whether the skill prevents bad behavior). Standard skills use A/B mode (tasks testing whether the skill improves output quality). No user flag needed.
 
-**a. Generate 4 tasks** using Gemini:
+**a. Generate 3 tasks** using Gemini:
 ```bash
 uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval generate-tasks <SKILL_DIR> --repos-file .tmp/deep-eval/repos.json
 ```
-This outputs JSON with 4 tasks:
-- Task 1: Knowledge test (no repo)
-- Tasks 2-4: Repo-based tasks (code review, code writing, debugging — on the user's actual repositories)
+This outputs JSON with 3 repo-based tasks (code review, code writing, debugging — on the user's actual repositories). Tasks create situations where the skill's rules would naturally apply, rather than asking the agent to explain the skill's rules.
 
 **Save the task definitions to `.tmp/deep-eval/<skill>_tasks.json`**.
 
-**b. Spawn ALL 12 subagents in parallel** (4 tasks × 3 conditions) in a single message with multiple Agent tool calls. For each task, spawn 3 subagents:
+**b. Spawn ALL 9 subagents in parallel** (3 tasks × 3 conditions) in a single message with multiple Agent tool calls. For each task, spawn 3 subagents:
 
 **Agent A (bare) — no skills loaded:**
 ```
@@ -154,7 +152,7 @@ IMPORTANT RULES:
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
-After all 12 subagents complete, save each response to temp files:
+After all 9 subagents complete, save each response to temp files:
 - `.tmp/deep-eval/<skill>_task<N>_bare.txt` (Agent A)
 - `.tmp/deep-eval/<skill>_task<N>_allexcept.txt` (Agent B)
 - `.tmp/deep-eval/<skill>_task<N>_withskill.txt` (Agent C)
@@ -215,7 +213,7 @@ done
 
 ### 6.6: Aggregate results
 
-For each skill, aggregate TWO separate verdict tracks across all 4 tasks:
+For each skill, aggregate TWO separate verdict tracks across all 3 tasks:
 
 **Absolute value** (bare vs with-skill): Does the skill teach Claude something it doesn't already know?
 - Count wins, losses, ties, inconclusive from Judgment 1 results
@@ -244,8 +242,8 @@ Write to `evaluate-setup-deep-log.md` (if that file exists, append a number: `ev
 
 ## How This Evaluation Works
 
-For each skill below, we ran 4 tasks: 1 knowledge question + 3 tasks on
-your actual repositories. Each task was run THREE times:
+For each skill below, we ran 3 tasks on your actual repositories.
+Each task was run THREE times:
 - **Agent A (bare):** Claude with no skills loaded
 - **Agent B (all-except):** Claude with all skills EXCEPT the tested one
 - **Agent C (with-skill):** Claude with the tested skill loaded
@@ -265,18 +263,7 @@ No files were modified during testing — all repository access was read-only.
 
 > Task definitions: `.tmp/deep-eval/<skill>_tasks.json`
 
-### Task 1 (knowledge): [task description]
-
-**Response A (bare):** [summary]
-**Response B (all-except):** [summary]
-**Response C (with-skill):** [summary]
-
-**Absolute (A vs C):** with_skill (HIGH) — unique
-**Marginal (B vs C):** with_skill (LOW) — unique
-
----
-
-### Task 2 (review on repo-name): [task description]
+### Task 1 (review on repo-name): [task description]
 
 **Response A (bare):** [summary]
 **Response B (all-except):** [summary]
@@ -287,7 +274,7 @@ No files were modified during testing — all repository access was read-only.
 
 ---
 
-[Tasks 3-4 follow same format]
+[Task 3 follows same format]
 
 ---
 
@@ -308,7 +295,7 @@ Layer 3 results go in **Dimension 3: Redundancy** of the main report. For each t
 
 | Task | Absolute (bare vs skill) | Marginal (all-except vs skill) |
 |---|---|---|
-| Task 1 (knowledge) | with_skill (HIGH) | tie (LOW) |
+| Task 1 (review) | with_skill (HIGH) | tie (LOW) |
 | Task 2 (review) | with_skill (HIGH) | with_skill (HIGH) |
 | Task 3 (write) | with_skill (LOW) | with_skill (LOW) |
 | Task 4 (debug) | tie (LOW) | tie (LOW) |
