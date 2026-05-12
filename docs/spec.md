@@ -1,30 +1,33 @@
 # the-evaluator
 
-**Status:** v1.4 built · all 3 layers operational
+**Status:** v2.0 built · two-command architecture
 **Author:** Benjamin Kapner + design review with Claude
 **Last updated:** May 2026
-**Changes from v1.3:** Layer 3 A/B testing now generates 3 behavioral repo-based tasks instead of 4 (removed tautological knowledge task). Task generation prompt rewritten to create situations where the skill's rules naturally apply, rather than asking agents to explain rules. This reduces subagent count from 12 to 9 per skill and eliminates inflated absolute scores from reading-comprehension tests.
-**Changes from v1.2:** Split command.md into thin command + reference files (`layer3-protocol.md`, `report-format.md`) — Layer 3 content loads on demand only when selected. Added Layer 2 autonomy analysis (coercive trigger language, hard gates, broad category intercepts), command size thresholds, and behavioral pattern checks (mandate stacking, autonomy erosion, broad trigger collision). Red-team mode now auto-activates for preventive skills. Added structural tests for command.md and SKILL.md files (`tests/test_command_prompts.py`).
-**Changes from v1.1:** Removed auto-fix (`--fix`). Added Layer 1 rules for commands (2 rules), CLAUDE.md (3 rules), and hooks (1 rule) — total 15 rules across 4 file types. Added interactive Step 0 (ask user about output format and scope before starting). Added cross-type optimization suggestions (skill→hook, skill→command, CLAUDE.md→skill, etc.). Added numbered suggestions in summary so users can say "do 1, skip 2". Added hard rules: never verdict without rubric, don't manufacture problems.
-**Changes from v1.0:** Rule engine architecture for Layer 1 (inspired by [skilleval](https://github.com/natifridman/skilleval)), config presets, inline suppression, structured rubric scoring for Layer 2 (inspired by [deepeval](https://github.com/confident-ai/deepeval)), red-team mode for preventive skills (inspired by [promptfoo](https://github.com/promptfoo/promptfoo) and [giskard](https://github.com/Giskard-AI/giskard)), repeat-and-vote judge reliability. Single-skill mode, CLAUDE.md evaluation rubric, command evaluation rubric.
+**Changes from v1.4:** Split into two separate commands: `/evaluate-setup` (L1+L2 on entire setup) and `/evaluate-skill` (L1+L2+L3 on a single skill). evaluate-setup no longer asks scope — it always evaluates everything. evaluate-skill runs all 3 layers on one skill: static analysis, contextual rubric scoring (individual + in context of all other skills), and A/B testing. Layer 3 protocol updated: agents save their own output files, allexcept prompts pre-built before agent dispatch, skills processed sequentially.
+**Changes from v1.3:** Layer 3 A/B testing now generates 3 behavioral repo-based tasks instead of 4. Task generation prompt rewritten to create situations where the skill's rules naturally apply.
+**Changes from v1.2:** Split command.md into thin command + reference files. Added Layer 2 autonomy analysis, command size thresholds, and behavioral pattern checks.
+**Changes from v1.1:** Removed auto-fix. Added Layer 1 rules for commands, CLAUDE.md, and hooks. Added interactive Step 0, cross-type optimization, numbered suggestions. Added hard rules.
+**Changes from v1.0:** Rule engine architecture, config presets, inline suppression, structured rubric scoring, red-team mode, repeat-and-vote judge reliability.
 
 ---
 
 ## Quick Overview
 
-the-evaluator evaluates your Claude Code setup — skills, commands, CLAUDE.md, and how they all fit together. Run `/evaluate-setup` to evaluate everything, or `/evaluate-setup <path>` to focus on a specific skill or file. Either way, you get a report telling you what to keep, what to remove, what to merge, and what to fix.
+the-evaluator is two commands for two different jobs:
 
-It works in three layers, each going deeper than the last:
+**`/evaluate-setup`** — Health check for your entire Claude Code setup. Evaluates all skills, commands, CLAUDE.md, and hooks together. Runs Layer 1 (static analysis) and Layer 2 (rubric scoring with cross-type optimization). Tells you what to keep, remove, merge, and fix. Always evaluates everything — no scope selection needed.
 
-**Layer 1 — Count and check (rule engine, no AI).** A pluggable rule engine scans your setup files — skills, commands, CLAUDE.md, and hooks. Each check is a self-contained rule — its own file, its own test, registered in a central registry. Out of the box, the engine ships with 15 rules across 4 file types: skill rules (token counting, duplicate detection, broken references, format validation, missing descriptions, security scanning), command rules (description required, script existence), CLAUDE.md rules (line count, generic advice detection, skill duplication), and hooks rules (structure validation, dangerous patterns). You can configure which rules run via presets (`recommended`, `strict`, `security`) or override individual rules in a `.evaluator.yaml` config file. No AI involved — just parsing and math. Outputs a JSON report with per-rule diagnostics.
+**`/evaluate-skill`** — Deep evaluation of a single skill. Runs all 3 layers on one skill: Layer 1 (rules), Layer 2 (contextual rubric scoring — individually and in context of the whole setup), and Layer 3 (A/B testing — does the skill actually change Claude's behavior?). Use this to validate whether a specific skill earns its place.
 
-**Layer 2 — Expert review (Claude in your session).** Claude — the one already running in your conversation — reads the Layer 1 JSON plus every skill and command file and CLAUDE.md, and evaluates the whole setup against structured rubrics. Skills are scored on 5 dimensions (specificity, redundancy, trigger quality, token efficiency, content quality). Trigger quality includes autonomy impact analysis — detecting coercive language ("MUST use this"), hard gates, and broad category intercepts that override user control. CLAUDE.md is scored on its own rubric (conciseness, signal-to-noise, skill separation, structure, conflict-free) based on [official Claude Code best practices](https://code.claude.com/docs/en/best-practices). Commands are scored on description quality, instruction clarity, script integrity, scope, token efficiency (with size thresholds), redundancy with defaults, and robustness. Setup-wide behavioral pattern checks detect mandate stacking (multiple skills with coercive language), autonomy erosion (broad triggers + hard gates), and broad trigger collisions.
+Both commands use the same three layers, but at different scope:
 
-**Layer 3 — A/B experiment (optional).** Gemini screens skills for testability, then generates 3 repo-based test tasks per skill using the user's actual repositories. Tasks create situations where the skill's rules would naturally apply, rather than asking the agent to explain the rules. Claude Code runs each task twice via subagents — once with the skill loaded, once without. Then Gemini judges each pair with a redundancy-first approach: the primary question (~70%) is "did one response apply specific conventions from the skill that the other missed?" using repeat-and-vote (3 judge calls per pair, majority wins). For preventive skills (detected automatically via negation patterns), adversarial tasks are generated instead of standard tasks — testing whether the skill actually prevents bad behavior. All intermediate artifacts (screening results, task definitions, agent responses) are saved to `.tmp/deep-eval/` for inspection.
+**Layer 1 — Rules (rule engine, no AI).** A pluggable rule engine scans skill files and runs mechanical checks: token counting, duplicate detection, broken references, format validation, description quality, security scanning (prompt injection, credential exposure). Configured via presets (`recommended`, `strict`, `security`). Outputs JSON with per-rule diagnostics.
 
-Layers 1 and 2 always run. Layer 3 is opt-in via the interactive Step 0 question flow. Requires `GOOGLE_API_KEY` in `.env` (no Anthropic API key needed — subagents run in the current Claude Code session).
+**Layer 2 — Prompt (Claude in your session).** Claude reads files and evaluates against structured rubrics. In `/evaluate-setup`: scores every skill, command, CLAUDE.md, and hook, then does cross-type optimization (should this skill be a hook? does CLAUDE.md duplicate a skill?). In `/evaluate-skill`: scores one skill individually AND in context of all other setup components (overlap, conflicts, type appropriateness).
 
-The tool is read-only — it never modifies, moves, or deletes any of your files. It produces numbered suggestions that the user can act on selectively ("do 1, do 2, skip 3").
+**Layer 3 — A/B Testing (requires `GOOGLE_API_KEY`).** Only runs in `/evaluate-skill`. Gemini generates 3 repo-based tasks, Claude runs each under 3 conditions (bare, all-except, with-skill), Gemini judges which performed better. Tests absolute value (does the skill teach something new?) and marginal value (does it add value beyond other skills?).
+
+Both commands are read-only — they never modify your files. They produce numbered suggestions the user can act on selectively.
 
 ---
 
@@ -135,52 +138,61 @@ For users who want empirical proof, not just an expert opinion. This requires `G
 
 ### 3.2 How the layers flow together
 
+**`/evaluate-setup` flow:**
+
 ```
 User types: /evaluate-setup
-Step 0: Ask scope (everything/skills/specific), layers (1+2/all/L3 only), output (terminal/file)
+Step 0: Ask output format (terminal/file)
 
   +----------------------------------------------+
   |  Layer 1: Rule engine                        |
-  |  Load preset config + .evaluator.yaml        |
-  |  Parse each skill → run enabled rules →      |
-  |  collect diagnostics                         |
-  |  Scan skills, commands, CLAUDE.md, hooks      |
+  |  Scan ALL skills, commands, CLAUDE.md, hooks |
   +---------------------+------------------------+
-                        | JSON output (per-rule diagnostics)
+                        | JSON output
                         v
   +----------------------------------------------+
-  |  Layer 2: Claude review with rubric          |  Current session
-  |  Reads JSON + skill/command files + CLAUDE.md|
-  |  Scores each item on rubric dimensions       |
-  |  Autonomy + behavioral pattern analysis      |
+  |  Layer 2: Claude review with rubric          |
+  |  Score each item on rubric dimensions        |
   |  Cross-type optimization analysis            |
   |  Setup-wide recommendations                  |
   +---------------------+------------------------+
                         |
-              User chose "All" layers?
+                   Done. Show report.
+```
+
+**`/evaluate-skill` flow:**
+
+```
+User types: /evaluate-skill [skill-name]
+Step 1: Select skill (if not in arguments)
+Step 2: Ask output format (terminal/file)
+
+  +----------------------------------------------+
+  |  Layer 1: Rule engine on this skill          |
+  +---------------------+------------------------+
+                        |
+  +----------------------------------------------+
+  |  Layer 2: Individual + contextual scoring    |
+  |  Score on rubric dimensions                  |
+  |  Check overlap with other skills             |
+  |  Check conflicts with CLAUDE.md              |
+  +---------------------+------------------------+
+                        |
+              Skill testable? (Gemini screens)
                  /            \
                no              yes
                |                |
-          Done. Show     Check GOOGLE_API_KEY.
-          report.        Screen skills (Gemini).
-                         User selects skills.
+          Done. Show     Generate 3 tasks.
+          L1+L2 report.  Spawn 9 agents.
+                         Run 6 judge calls.
                                 |
-                                v
                   +-------------------------------+
-                  | Layer 3: Per-skill testing     |
-                  | For each selected skill:       |
-                  |   Preventive? → red-team mode  |
-                  |     (adversarial tasks,         |
-                  |      HELD/BROKE/PARTIAL)        |
-                  |   Standard? → A/B mode         |
-                  |     (4 tasks, redundancy-first, |
-                  |      3x vote per pair)          |
-                  | Mode auto-detected per skill   |
+                  | Layer 3: A/B testing           |
+                  |   3 conditions × 3 tasks       |
+                  |   Absolute + marginal verdicts  |
                   +-------------------------------+
                                 |
-                         Artifacts saved to
-                         .tmp/deep-eval/.
-                         Report + deep log.
+                         Combined L1+L2+L3 report.
 ```
 
 ### 3.3 What this does NOT test
@@ -195,35 +207,30 @@ Layer 2 partially compensates — Claude can review the skill's description and 
 
 ## 4. How the user uses it
 
-### 4.1 The command
+### 4.1 The commands
+
+Two separate commands for two different jobs:
 
 ```
-/evaluate-setup [path] [--preset recommended|strict|security]
+/evaluate-setup [--preset recommended|strict|security]
 ```
 
-Before running, the command asks the user three questions (Step 0): (1) what to evaluate on Layers 1+2 (everything, skills only, or a specific item), (2) which layers to run (1+2 only, all three, or Layer 3 only), and (3) where to put the report (terminal or file). If Layer 3 is selected, a follow-up question asks which skills to A/B test. Preventive skills are automatically tested with adversarial tasks (red-team mode).
+Evaluates the entire setup — all skills, commands, CLAUDE.md, and hooks. Asks only where to put the report (terminal or file), then runs L1+L2.
 
 ```
-/evaluate-setup
-  Interactive — asks scope, layers, and output format, then runs.
-
-/evaluate-setup skills/python-conventions/
-  Single-skill mode. Scans ALL skills for context (duplicates, overlaps)
-  but focuses the report on this one skill.
-
-/evaluate-setup --preset strict
-  Check all skills with stricter rules.
-
-/evaluate-setup --preset security
-  Security-only audit.
+/evaluate-skill [skill-name or path]
 ```
 
-Natural language works too:
-- "evaluate my setup"
-- "is my python-conventions skill any good?" (single-skill mode)
-- "which of my skills should I remove?"
-- "run a security audit on my skills"
-- "evaluate my CLAUDE.md"
+Deep-evaluates a single skill with all 3 layers. If no skill is specified, lists available skills and asks which one to test. Runs L1 (rules) + L2 (contextual scoring) + L3 (A/B testing).
+
+```
+/evaluate-setup                        # Evaluate entire setup
+/evaluate-setup --preset strict        # Stricter rules
+/evaluate-setup --preset security      # Security-only audit
+
+/evaluate-skill python-conventions     # Deep-evaluate one skill
+/evaluate-skill skills/accessibility/  # By path
+```
 
 ### 4.2 What the user sees
 
@@ -239,7 +246,8 @@ Each verdict comes with:
 - How many tokens the skill costs
 - Specific issues found
 - Concrete recommendations ("rewrite description to start with 'Use when...'", "merge with pdf-wizard", "trim from 5,200 to ~1,500 tokens")
-- If Layer 3 ran: A/B results — win/loss/tie counts with redundancy signal and confidence level
+
+For `/evaluate-skill`, the verdict also includes Layer 3 A/B results — win/loss/tie counts with redundancy signal and confidence level.
 
 ### 4.3 Example output
 
@@ -344,9 +352,11 @@ Full review: saved to evaluate-setup-report.md
 the-evaluator/
   commands/
     evaluate-setup/
-      command.md                   # Layer 2: command prompt with rubrics + cross-type optimization (26KB)
-      layer3-protocol.md           # Layer 3: A/B test execution protocol (loaded on demand)
+      command.md                   # L1+L2: command prompt with rubrics + cross-type optimization
       report-format.md             # Report structure and output templates (loaded on demand)
+    evaluate-skill/
+      command.md                   # L1+L2+L3: single-skill deep evaluation command
+      layer3-protocol.md           # Layer 3: A/B test execution protocol (loaded on demand)
   tests/
     test_command_prompts.py        # Structural validation tests for command.md and SKILL.md files
     test_workspace_scripts.py      # Workspace infrastructure tests
@@ -394,7 +404,7 @@ the-evaluator/
             security.py            # Security rules only
 ```
 
-`command.md` is the brain — it tells Claude what to do, what rubric to evaluate against, and how to format the output. `layer3-protocol.md` and `report-format.md` are loaded on demand via `Read` — they only enter context when the user selects Layer 3 or when Claude needs the report template. The rule engine and Python scripts are the hands — they do the mechanical work that Claude can't or shouldn't do itself.
+`evaluate-setup/command.md` handles whole-setup evaluation (L1+L2). `evaluate-skill/command.md` handles single-skill deep evaluation (L1+L2+L3). `layer3-protocol.md` and `report-format.md` are loaded on demand via `Read`. The rule engine and Python scripts do the mechanical work that Claude can't or shouldn't do itself.
 
 ### 5.2 Layer 1 details: rule engine
 
@@ -1209,25 +1219,25 @@ For each with/without pair, the judge is called 3 times (same prompt, same respo
 - `python-dotenv` — .env file loading
 - `anthropic` — listed but not currently used (reserved for future direct API testing)
 
-### 5.5 How the layers combine in the command
+### 5.5 How the layers combine in the commands
 
-The prompt instructs Claude to orchestrate the layers:
+**`/evaluate-setup`** orchestrates L1+L2 on the whole setup:
 
-0. **Step 0:** Ask the user three questions: (1) scope (everything/skills/specific item), (2) which layers to run (1+2/all/L3 only), (3) output format (terminal/file). If Layer 3 selected, ask a follow-up about which skills to A/B test after screening them with Gemini.
-1. Run Layer 1 (rule engine) with the specified preset. Read the JSON.
-2. Read the actual files and evaluate them against the appropriate rubric (Layer 2). Score each item on its rubric dimensions with reasoning. Run cross-type optimization analysis.
-3. Produce the full review (to terminal or file based on user's choice).
-4. If the user chose "All" layers:
-   - Check for `GOOGLE_API_KEY` in `.env`
-   - Screen skills for testability with Gemini (save to `.tmp/deep-eval/skill-screening.json`)
-   - User selects which testable skills to A/B test
-   - For each selected skill: generate tasks (save to `.tmp/deep-eval/<skill>_tasks.json`), spawn subagents, judge pairs
-   - Save all agent responses to `.tmp/deep-eval/`
-   - Verify no repo modifications
-   - Aggregate results and save deep log to `evaluate-setup-deep-log.md`
-   - Add Layer 3 summary to each tested skill in the main report
-5. If Layer 3 was NOT selected but some skills scored 2 stars or below in L2: suggest running Layer 3 to verify.
-6. **Always** print a short terminal summary with numbered suggestions. The user can say "do 1, do 2, skip 3" to act on them. If the setup is solid, say so — don't manufacture problems.
+0. **Step 0:** Ask output format (terminal/file).
+1. Run Layer 1 (rule engine) on all skills, commands, CLAUDE.md, hooks. Read the JSON.
+2. Read all files and evaluate against rubrics (Layer 2). Score each item. Run cross-type optimization.
+3. Produce the full review (to terminal or file).
+4. **Always** print a short terminal summary with numbered suggestions.
+
+**`/evaluate-skill`** orchestrates L1+L2+L3 on one skill:
+
+1. User selects a skill (or passes it as argument).
+2. Run Layer 1 on that skill. Read the JSON.
+3. Read the skill's files + all other skills/CLAUDE.md for context. Score on rubric dimensions individually and contextually (Layer 2).
+4. Check `GOOGLE_API_KEY`. Screen skill for testability (Gemini).
+5. If testable: pre-build allexcept file, generate 3 tasks, spawn 9 agents (each saves own output), run 6 judge calls, aggregate.
+6. Produce combined L1+L2+L3 report. Save detailed A/B log.
+7. **Always** print a short terminal summary with the final verdict.
 
 ---
 
@@ -1243,7 +1253,8 @@ The prompt instructs Claude to orchestrate the layers:
   - CLAUDE.md only (`--claude-md`): evaluate CLAUDE.md against best practices
   - Commands only (`--commands`): evaluate all command.md files
   - Hooks only (`--hooks`): evaluate hooks in settings.json
-- **Interactive Step 0:** asks user about output format (terminal/file) and scope before starting
+- **Two commands:** `/evaluate-setup` (whole setup, L1+L2) and `/evaluate-skill` (single skill, L1+L2+L3)
+- **Interactive Step 0:** `/evaluate-setup` asks output format only. `/evaluate-skill` asks which skill + output format.
 - **Layer 1:** pluggable rule engine with 15 rules across 4 file types (skills, commands, CLAUDE.md, hooks)
 - **Layer 1 extras:** config presets (recommended/strict/security), `.evaluator.yaml` per-rule overrides, inline suppression comments
 - **Layer 2 skills rubric:** 5 dimensions (specificity, redundancy, trigger quality with autonomy impact, token efficiency, content quality)
@@ -1345,6 +1356,6 @@ The user clones a GitHub repo and points Claude Code at the command:
 git clone <repo-url> ~/.claude/the-evaluator
 ```
 
-Then configures Claude Code to recognize the `/evaluate-setup` command (exact mechanism depends on how the user manages their commands — could be a symlink, a commands directory entry, or a path in settings).
+Then configures Claude Code to recognize the `/evaluate-setup` and `/evaluate-skill` commands (exact mechanism depends on how the user manages their commands — could be a symlink, a commands directory entry, or a path in settings).
 
-No pip install. No build step. It's a command prompt (`command.md`) and a Python package (`scripts/evaluate-setup/`). `uv run --project scripts/evaluate-setup` handles dependencies automatically. For Layer 3, add `--extra deep` and a `GOOGLE_API_KEY` in `.env`.
+No pip install. No build step. Two command prompts (`evaluate-setup/command.md` and `evaluate-skill/command.md`) and a Python package (`scripts/evaluate-setup/`). `uv run --project scripts/evaluate-setup` handles dependencies automatically. For `/evaluate-skill` Layer 3, add `--extra deep` and a `GOOGLE_API_KEY` in `.env`.

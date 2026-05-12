@@ -14,74 +14,27 @@ You are running **the-evaluator** — a health check for Claude Code setups. You
 4. **Don't manufacture problems.** If the setup is good, say so. Not every run needs to produce a list of changes. A healthy setup with minor cosmetic issues should get a clear "your setup is solid" verdict — not a long list of suggestions that creates unnecessary work. Only recommend changes that would make a real difference. "You could trim 50 tokens from this skill" is not a real recommendation. "This skill duplicates another and wastes 1,000 tokens every session" is.
 5. **Always end with a short summary.** Regardless of output format, the last thing the user sees in the terminal must be a short summary (see Step 5b). The full review is either above in the terminal or saved to a file — the summary tells the user the bottom line and where to find details.
 
-## Step 0: Ask the User Before Starting
+## Step 0: Ask Output Format
 
-This is a two-round question flow. Ask round 1 first, then ask round 2 based on the answers.
+This command always evaluates everything — skills, commands, agents, CLAUDE.md, and hooks. The only question is where the report goes.
 
-### Round 1: Ask these 3 questions together in a single AskUserQuestion call
+Ask using AskUserQuestion:
 
-1. **Scope:** "What do you want to evaluate on Layers 1+2?"
-   - **Everything** — skills + commands + agents + CLAUDE.md + hooks
-   - **Skills only**
-   - **A specific item** — ask which one
-
-2. **Layers:** "Which layers do you want to run?"
-   - **All (1 + 2 + 3)** — static analysis, rubric scoring, and A/B redundancy testing
-   - **Layers 1 + 2** — static analysis and rubric scoring (no A/B testing)
-   - **Layer 3 only** — A/B redundancy testing only (skip static analysis and rubric)
-
-3. **Output:** "Where do you want the report?"
-   - **Terminal** — print everything here
-   - **File** — save to a file (recommended for full scans)
-
-Wait for answers before proceeding to round 2.
-
-### Round 2: Follow-up questions (based on round 1 answers)
-
-**If the user chose "All" or "Layer 3 only" for layers:** Ask a follow-up question using AskUserQuestion to select which skills to A/B test in Layer 3. The scope from question 1 applies to Layers 1+2 only — Layer 3 always requires explicit skill selection because not all skills are good A/B candidates.
-
-Present the skill list dynamically. Run `screen-skills` first (Step 6.3) to let Gemini classify each skill as testable or not. Then present the results to the user with pre-checked/unchecked based on Gemini's assessment:
-
-```
-Which skills should Layer 3 (A/B testing) evaluate?
-
-  [For each skill found in the workspace, show Gemini's assessment:]
-  N. [x] <skill-name>    — <Gemini's reason: e.g., "teaches specific patterns">
-  N. [ ] <skill-name>    — <Gemini's reason: e.g., "workflow orchestrator, not single-turn">
-
-Select by number (e.g. 1-3, all, 1 2 5):
-```
-
-If `screen-skills` hasn't run yet (e.g., user jumped straight to Round 2), run it now before presenting the list. Never hardcode skill names — always discover from the workspace.
+**Output:** "Where do you want the report?"
+  - **Terminal** — print everything here
+  - **File** — save to a file (recommended for full scans)
 
 **If the user chose file output:** Check if `evaluate-setup-report.md` already exists. If it does, ask the user for a different filename — do NOT overwrite existing reports.
-
-### Flow matrix
-
-| Scope | Layers | What runs |
-|---|---|---|
-| Everything | All | L1 all → L2 all → L3 selected skills/agents |
-| Everything | 1 + 2 | L1 all → L2 all |
-| Everything | 3 only | L3 selected skills/agents only |
-| Skills only | All | L1 skills → L2 skills → L3 selected skills |
-| Skills only | 1 + 2 | L1 skills → L2 skills |
-| Skills only | 3 only | L3 selected skills only |
-| Specific item | All | L1 + L2 + L3 on that item |
-| Specific item | 1 + 2 | L1 + L2 on that item |
-| Specific item | 3 only | L3 on that item |
 
 ## Arguments
 
 `$ARGUMENTS` may include:
-- A path (e.g., `~/.claude/skills/`, `skills/<skill-name>/`)
 - `--preset strict` or `--preset security` (default: recommended)
-- Natural language like "evaluate my setup", "is my python skill any good?"
+- Natural language like "evaluate my setup"
 
-If no path is given and the user didn't answer Step 0 (e.g., they passed arguments directly), default to scanning skills in the current directory with terminal output, Layers 1+2 only.
+If arguments are passed directly, default to terminal output and start running.
 
 ## Step 1: Run Layer 1 (Static Analysis)
-
-*Skip this step if the user chose "Layer 3 only".*
 
 Find the evaluator project directory:
 
@@ -103,8 +56,6 @@ Layer 1 checks include: frontmatter validation, description quality (third-perso
 
 ## Step 2: Read Actual Files (Layer 2 Preparation)
 
-*Skip this step if the user chose "Layer 3 only".*
-
 Read the actual content of:
 1. Every skill file (SKILL.md) in the scan path
 2. **All files in each skill's `skills/` subdirectory** (if it exists) — these are reference files with detailed content. Score the COMBINED content (SKILL.md + reference files), not just the entry point.
@@ -116,8 +67,6 @@ Read the actual content of:
 You need the actual content — not just the Layer 1 JSON — to evaluate quality, redundancy, and content. For skills with reference files, the SKILL.md is just the entry point — the real content is in the reference files.
 
 ## Step 3: Evaluate Each Skill (Layer 2)
-
-*Skip this step if the user chose "Layer 3 only".*
 
 For each skill, produce a **structured rubric score** on 5 dimensions:
 
@@ -239,7 +188,7 @@ Score each command on 7 dimensions:
 - Under 15KB: Fine. Most commands are 1-5KB.
 - 15-30KB: Recommend splitting into a thin command.md (execution steps, rubric) + reference files that Claude reads on demand. Score token efficiency at most 2/5.
 - Over 30KB: Strong recommendation to split. The command is doing too much in one file. Score token efficiency at most 1/5.
-- A command.md that references separate files for optional/conditional sections (e.g., Layer 3 protocol loaded only when the user selects it) is more efficient than one that inlines everything.
+- A command.md that references separate files for optional/conditional sections is more efficient than one that inlines everything.
 
 ## Step 3d: Evaluate Hooks (if --hooks or --all)
 
@@ -251,7 +200,7 @@ For each hook, check:
 
 ## Step 3e: Evaluate Agents (if agents were found during scan)
 
-*Skip this step if the user chose "Layer 3 only" or no agents were found.*
+*Skip this step if no agents were found.*
 
 Score each agent on 5 dimensions:
 
@@ -308,8 +257,6 @@ Verdicts: **KEEP** (4-5 stars), **REVIEW** (3 stars), **REMOVE** (1-2 stars).
 ```
 
 ## Step 4: Cross-Type Optimization (the full picture)
-
-*Skip this step if the user chose "Layer 3 only".*
 
 This is where you look at the **whole setup** and suggest transformations between types. Only suggest transformations when you genuinely believe they would improve the setup — don't suggest changes for the sake of it.
 
@@ -381,8 +328,3 @@ These are illustrative patterns — always use the actual skill/command names fr
 
 Read `commands/evaluate-setup/report-format.md` for the full report structure, per-item output format, and terminal summary rules.
 
-## Step 6: Deep Evaluation (Layer 3)
-
-*Run this step if the user chose "All" or "Layer 3 only" for layers.*
-
-Read `commands/evaluate-setup/layer3-protocol.md` for the complete Layer 3 protocol: prerequisites, repo discovery, skill screening, A/B test execution (3-condition design with 9 subagents), judging, aggregation, and log format.
