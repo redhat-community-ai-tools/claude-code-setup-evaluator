@@ -25,7 +25,7 @@ Both commands use the same three layers, but at different scope:
 
 **Layer 2 — Prompt (Claude in your session).** Claude reads files and evaluates against structured rubrics. In `/evaluate-setup`: scores every skill, command, CLAUDE.md, and hook, then does cross-type optimization (should this skill be a hook? does CLAUDE.md duplicate a skill?). In `/evaluate-skill`: scores one skill individually AND in context of all other setup components (overlap, conflicts, type appropriateness).
 
-**Layer 3 — A/B Testing (requires `GOOGLE_API_KEY`).** Only runs in `/evaluate-skill`. Gemini generates 3 repo-based tasks, Claude runs each under 3 conditions (bare, all-except, with-skill), Gemini judges which performed better. Tests absolute value (does the skill teach something new?) and marginal value (does it add value beyond other skills?).
+**Layer 3 — A/B Testing (requires `GOOGLE_API_KEY`).** Only runs in `/evaluate-skill`. Gemini generates 3 repo-based tasks, Claude runs each under 2 conditions (all-except, with-skill), Gemini judges which performed better. Tests marginal value: does the skill add value beyond what other skills already provide? Tasks with poor test quality are automatically excluded from the verdict.
 
 Both commands are read-only — they never modify your files. They produce numbered suggestions the user can act on selectively.
 
@@ -118,19 +118,21 @@ For users who want empirical proof, not just an expert opinion. This requires `G
 
 **Standard mode** — tests whether a skill makes Claude's output better:
 
-1. **Gemini writes 3 tasks.** It reads the skill's description and content, then creates 3 repo-based tasks (code review, code writing, debugging) that use the user's actual repositories. Tasks create situations where the skill's rules would naturally apply — not knowledge questions that ask the agent to recite the rules. Task definitions are saved to `.tmp/deep-eval/<skill>_tasks.json`.
+1. **Gemini writes 3 tasks.** It reads the skill's description and content, then creates 3 repo-based tasks (code review, code writing, debugging) that use the user's actual repositories. Tasks create situations where the skill's rules would naturally apply — not knowledge questions that ask the agent to recite the rules. The task generator matches repo language to the skill's target language (e.g., Python skill → Python repos). Task definitions are saved to `.tmp/deep-eval/<skill>_tasks.json`.
 
-2. **Claude takes the test twice.** For each task, two subagents are spawned: one with the skill loaded in its prompt, one without. Both have read-only access to the user's repositories. All 6 subagents per skill run in parallel. Responses are saved to `.tmp/deep-eval/<skill>_task<N>_with.txt` and `_without.txt`.
+2. **Claude takes the test twice.** For each task, two subagents are spawned: one with all skills except the tested one (all-except), one with the tested skill loaded (with-skill). Both have read-only access to the user's repositories. All 6 subagents per skill run in parallel. Responses are saved to `.tmp/deep-eval/<skill>_task<N>_allexcept.txt` and `_withskill.txt`.
 
-3. **Gemini grades with redundancy-first judging.** For each pair, Gemini receives both responses in randomized order (blinded). The judge evaluates in two steps: (1) Redundancy check (~70%): did one response apply specific conventions from the skill that the other missed? If both responses follow the same conventions equally well, the skill is redundant → verdict is TIE. (2) Quality check (~30%): is one response clearly better? Only matters if step 1 didn't produce a winner. The skill file is provided to the judge as context so it can check for specific convention adherence. Each pair gets 3 blind votes (repeat-and-vote), majority wins. Confidence: HIGH if unanimous, LOW if 2-1 split.
+3. **Quality screening.** Before judging, responses are checked for completeness. Tasks where both responses are truncated or unusable are skipped — no judge call is made. This saves API calls on tests that can't produce meaningful signal.
 
-4. **The verdict.** KEEP (wins > losses and wins > ties), NO IMPACT (mostly ties — skill is redundant), HURTS (losses > wins).
+4. **Gemini grades with redundancy-first judging.** For each valid pair, Gemini receives both responses in randomized order (blinded). The judge evaluates in two steps: (1) Redundancy check (~70%): did one response apply specific conventions from the skill that the other missed? If both responses follow the same conventions equally well, the skill is redundant → verdict is TIE. (2) Quality check (~30%): is one response clearly better? Only matters if step 1 didn't produce a winner. The skill file is provided to the judge as context so it can check for specific convention adherence. Each pair gets 3 blind votes (repeat-and-vote), majority wins. Confidence: HIGH if unanimous, LOW if 2-1 split. Tasks where the judge reports poor test quality are excluded from the verdict.
+
+5. **The verdict** (based on good-quality tasks only). KEEP (wins > losses and wins > ties), NO IMPACT (mostly ties — skill is redundant), HURTS (losses > wins).
 
 **Red-team mode** — tests whether preventive skills actually prevent bad behavior:
 
 1. **Gemini writes 3 adversarial tasks.** Instead of helpful tasks, Gemini generates repo-based tasks designed to trick Claude into violating the skill's rules — direct contradictions, social engineering attempts, and subtle edge cases.
 
-2. **Claude takes the test twice.** Same subagent approach — with skill and without, all 6 subagents run in parallel.
+2. **Claude takes the test twice.** Same subagent approach — all-except and with-skill, all 6 subagents run in parallel.
 
 3. **Gemini judges resistance.** Verdict per pair: HELD / BROKE / PARTIAL.
 
@@ -183,13 +185,13 @@ Step 2: Ask output format (terminal/file)
                no              yes
                |                |
           Done. Show     Generate 3 tasks.
-          L1+L2 report.  Spawn 9 agents.
-                         Run 6 judge calls.
+          L1+L2 report.  Spawn 6 agents.
+                         Run 3 judge calls.
                                 |
                   +-------------------------------+
                   | Layer 3: A/B testing           |
-                  |   3 conditions × 3 tasks       |
-                  |   Absolute + marginal verdicts  |
+                  |   2 conditions × 3 tasks       |
+                  |   Marginal verdicts only        |
                   +-------------------------------+
                                 |
                          Combined L1+L2+L3 report.
@@ -1098,13 +1100,17 @@ Step 2: Task generation (1 Gemini call per skill)
 
 Step 3: Execution (6 subagent spawns per skill)
   For each of the 3 tasks:
-    Spawn subagent WITH the skill text in its prompt (read-only repo access)
-    Spawn subagent WITHOUT the skill text (same task, same repo access)
-  All 8 subagents run in parallel.
-  Responses saved to: .tmp/deep-eval/<skill>_task<N>_with.txt and _without.txt
+    Spawn subagent with all skills EXCEPT the tested one (all-except)
+    Spawn subagent WITH the tested skill loaded (with-skill)
+  All 6 subagents run in parallel.
+  Responses saved to: .tmp/deep-eval/<skill>_task<N>_allexcept.txt and _withskill.txt
 
-Step 4: Judging with repeat-and-vote (9 Gemini calls per skill)
-  For each of the 3 with/without pairs:
+Step 3.5: Quality screening
+  Check each task's responses for completeness (truncation, language mismatch).
+  Skip judging for tasks with clearly unusable responses.
+
+Step 4: Judging with repeat-and-vote (3 Gemini calls per skill, fewer if tasks skipped)
+  For each valid allexcept/withskill pair:
     Send both responses to Gemini in randomized order (blinded).
     Include the skill content as context for convention-aware judging.
     Two-step evaluation:
@@ -1112,15 +1118,17 @@ Step 4: Judging with repeat-and-vote (9 Gemini calls per skill)
         conventions from the skill that the other missed?
       Step B — Quality check (~30%): tiebreaker if Step A is inconclusive.
     Repeat 3 times (repeat-and-vote). Majority verdict wins.
-  That's 3 pairs x 3 votes = 9 judge calls.
+  That's up to 3 pairs x 3 votes = 9 judge calls (fewer if tasks skipped).
 
-Step 5: Aggregation
+Step 5: Aggregation (good-quality tasks only)
   Per-pair verdict = majority of the 3 judge votes.
   Per-pair confidence = HIGH (3-0 unanimous) or LOW (2-1 split).
   Per-pair redundancy signal = unique / redundant / unclear.
-  Per-skill verdict = pattern across the 3 tasks:
+  Exclude tasks where judge reported test_quality: "poor".
+  Per-skill verdict = pattern across good-quality tasks:
     wins > losses and wins > ties  -> KEEP
     losses > wins                  -> HURTS
+    0 good-quality tasks           -> INCONCLUSIVE
     otherwise                      -> NO IMPACT
 ```
 
@@ -1209,7 +1217,7 @@ For each with/without pair, the judge is called 3 times (same prompt, same respo
 - **3-0 unanimous** → HIGH confidence. All 3 judges agreed.
 - **2-1 split** → LOW confidence. The majority wins, but the dissenting reasoning is preserved in the output so the user can see why one judge disagreed.
 
-**Cost impact:** 9 Gemini judge calls per skill (3 pairs × 3 votes). No separate Claude API costs — subagents run in the current session.
+**Cost impact:** Up to 9 Gemini judge calls per skill (3 pairs × 3 votes), fewer if tasks are skipped for poor quality. No separate Claude API costs — subagents run in the current session.
 
 
 **Why 3 votes, not 5:** Diminishing returns. 3 votes catches the common case (one judge was wrong) with minimal cost. 5 votes only helps when the judge is essentially flipping a coin, which means the skill difference is genuinely ambiguous — and that's a valid signal to surface as LOW confidence rather than mask with more votes.
@@ -1235,7 +1243,7 @@ For each with/without pair, the judge is called 3 times (same prompt, same respo
 2. Run Layer 1 on that skill. Read the JSON.
 3. Read the skill's files + all other skills/CLAUDE.md for context. Score on rubric dimensions individually and contextually (Layer 2).
 4. Check `GOOGLE_API_KEY`. Screen skill for testability (Gemini).
-5. If testable: pre-build allexcept file, generate 3 tasks, spawn 9 agents (each saves own output), run 6 judge calls, aggregate.
+5. If testable: pre-build allexcept file, generate 3 tasks, spawn 6 agents (3 tasks × 2 conditions, each saves own output), screen response quality, run 3 marginal judge calls, aggregate good-quality results only.
 6. Produce combined L1+L2+L3 report. Save detailed A/B log.
 7. **Always** print a short terminal summary with the final verdict.
 

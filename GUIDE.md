@@ -84,7 +84,8 @@ Type the command name in the chat to run it.
 
 | Command | When | What it does |
 |---------|------|-------------|
-| `/evaluate-setup` | Anytime | Evaluates your Claude Code setup — skills, commands, CLAUDE.md, hooks |
+| `/evaluate-setup` | Anytime | Evaluates your entire Claude Code setup — skills, commands, CLAUDE.md, hooks |
+| `/evaluate-skill` | Testing a skill | Deep-evaluates one skill with L1+L2+L3 (including A/B testing) |
 | `/verify` | After coding | Checks if your code works (types, lint, tests) |
 | `/review` | Before pushing | Code review with security and anti-pattern checks |
 | `/quality-gate` | Right before `git push` | Pre-push safety check (tests + secret scan) |
@@ -124,15 +125,29 @@ The secret scan hook catches these patterns:
 
 ---
 
-## The Evaluator (`/evaluate-setup`)
+## The Evaluator
 
-The flagship feature. Evaluates your entire Claude Code setup across 3 layers:
+Two commands for two different jobs:
+
+### `/evaluate-setup` — Health check for the whole setup
+
+Evaluates all skills, commands, CLAUDE.md, and hooks together. Always evaluates everything.
 
 **Layer 1 — Static Analysis:** A rule engine with 15 rules checks for mechanical issues (missing descriptions, broken references, token budget violations, prompt injection patterns, duplicate content).
 
 **Layer 2 — AI Review:** Claude scores each item on a 5-dimension rubric, suggests cross-type optimizations (e.g., "this skill should be a hook"), and produces numbered suggestions you can act on.
 
-**Layer 3 — A/B Testing** (optional): Tests whether skills actually change Claude's behavior by running tasks with and without each skill on your actual repos, then using Gemini to judge with redundancy-first scoring. Requires `GOOGLE_API_KEY` in `.env`.
+**Typical workflow:** Run this first to get the overview. Takes ~2 minutes.
+
+### `/evaluate-skill` — Deep-evaluate one skill
+
+Runs all 3 layers on a single skill to determine if it earns its place:
+
+- **Layer 1** — Same static analysis, focused on this skill
+- **Layer 2** — Scores the skill individually AND in context of all other skills/CLAUDE.md (overlap, conflicts, type appropriateness)
+- **Layer 3 — A/B Testing** (requires `GOOGLE_API_KEY` in `.env`): Gemini generates 3 tasks on your actual repos. Claude runs each task twice — with all skills except this one, and with it included. Gemini judges whether the skill made a difference. Tasks with poor test quality are automatically excluded from the verdict.
+
+**Typical workflow:** Run this on any skill you're unsure about, or after creating a new skill. Takes ~5 minutes.
 
 See [docs/spec.md](docs/spec.md) for the full specification.
 
