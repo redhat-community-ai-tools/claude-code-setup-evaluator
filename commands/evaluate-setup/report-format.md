@@ -1,7 +1,5 @@
 ## Step 5: Produce the Report
 
-*Skip this step if the user chose "Layer 3 only".*
-
 ### Step 5a: Full Review
 
 If the user chose **terminal output**, print the full review directly. If they chose **file output**, write it to the chosen filename and tell the user where to find it.
@@ -40,20 +38,6 @@ skill teaching something Claude doesn't already know? Is the description
 good enough to trigger at the right time? Are behavioral rules specific and
 enforceable? Feeds into Redundancy + Compliance.
 
-[If Layer 3 ran:]
-**Layer 3 (A/B Testing)** — Empirical testing that runs ONLY for skills
-(not commands, hooks, or agents). Tests whether a skill actually changes
-Claude's behavior by running the same task under 3 conditions: (A) bare
-Claude with no skills, (B) Claude with all skills EXCEPT the tested one,
-(C) Claude with the tested skill. Gemini generates 3 repo-based tasks per
-skill (code review, code writing, debugging on real repositories) and
-judges two comparisons per task:
-absolute value (A vs C: does the skill teach something new?) and marginal
-value (B vs C: does the skill add value beyond what OTHER skills provide?).
-Not all skills are testable — workflow orchestrators and multi-turn
-interactive skills can't be meaningfully A/B tested in a single response.
-Feeds into Redundancy.
-
 ---
 
 ## Inventory
@@ -73,15 +57,6 @@ dimensions and give a final verdict:
   **Correctness:** [PASS/FAIL] — no injection patterns, no credential references,
     guidelines don't conflict with CLAUDE.md
   **Redundancy:** [score/5] — [one sentence: what's unique vs what Claude already knows]
-    [If Layer 3 ran for this skill:]
-    Layer 3 (A/B Testing): Tested with 4 Gemini-generated tasks:
-      1. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
-      2. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
-      3. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
-      4. [task type]: "[short task description]" — Absolute: [verdict] | Marginal: [verdict]
-      Overall: Absolute [verdict] ([wins]W/[losses]L/[ties]T) | Marginal [verdict] ([wins]W/[losses]L/[ties]T)
-    [If Layer 3 did NOT run for this skill:]
-    Layer 3: Not tested (skill is [reason: workflow orchestrator / multi-turn / not selected])
   **Compliance:** [summary of rubric scores]
     Specificity: [score/5] | Trigger: [score/5] | Token eff: [score/5] | Content: [score/5]
 

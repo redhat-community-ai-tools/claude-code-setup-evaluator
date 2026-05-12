@@ -59,7 +59,7 @@ This outputs JSON with `testable` and `not_testable` lists, each with reasons. *
 
 Use this to inform the skill selection — show the user which skills Gemini flagged as not testable and why (e.g., "requires MCP connection", "orchestrates tools rather than teaching patterns").
 
-### 6.4: Confirm skill selection
+### 6.4: Confirm skill selection and snapshot repos
 
 If the user already selected skills in Step 0 (round 2), cross-reference with the screening results. If any of their selections were flagged as not testable, warn them:
 
@@ -75,18 +75,56 @@ If the user hasn't selected skills yet, present the selection using screening re
 
 Confirm before proceeding.
 
-### 6.5: Run A/B tests (3-condition design)
-
-**Create temp directory:**
+**Snapshot repo state** before any agents run:
 ```bash
-uv run .ai-workspace/scripts/mktmpdir.py deep-eval 2>/dev/null || mkdir -p .tmp/deep-eval
+for dir in repositories/*/; do
+  if [ -d "$dir/.git" ]; then
+    name=$(basename "$dir")
+    git -C "$dir" status --porcelain 2>/dev/null | wc -l > .tmp/deep-eval/repo_snapshot_${name}.txt
+  fi
+done
 ```
 
-**Before starting, read ALL skill files** so you can build the "all-except" prompt for each tested skill. For each skill in the `skills/` directory, read its SKILL.md content and store it.
+### 6.5: Prepare allexcept prompt files
 
-**For each selected skill:**
+**Do this ONCE, before processing any skill.** This is a mechanical step — build it early when context is fresh.
+
+For each selected skill, concatenate the SKILL.md content of ALL OTHER skills and save to a file:
+
+```bash
+# For each selected skill, build the allexcept content
+for skill_name in <selected_skills>; do
+  allexcept=""
+  for other_dir in skills/*/; do
+    other_name=$(basename "$other_dir")
+    if [ "$other_name" != "$skill_name" ] && [ -f "$other_dir/SKILL.md" ]; then
+      allexcept+="--- $other_name ---"$'\n'
+      allexcept+=$(cat "$other_dir/SKILL.md")
+      allexcept+=$'\n\n'
+    fi
+  done
+  echo "$allexcept" > ".tmp/deep-eval/all_except_${skill_name}.txt"
+done
+```
+
+**Verify all files were created** before proceeding:
+```bash
+for skill_name in <selected_skills>; do
+  if [ ! -s ".tmp/deep-eval/all_except_${skill_name}.txt" ]; then
+    echo "ERROR: Missing allexcept file for $skill_name"
+  fi
+done
+```
+
+Do NOT skip this step. Do NOT build allexcept prompts on the fly during agent dispatch — use these pre-built files.
+
+### 6.6: Run A/B tests — one skill at a time
+
+**Process each selected skill sequentially.** Complete ALL steps (agents → verify files → judge → verdict) for one skill before starting the next. Do NOT start the next skill until the current one is fully judged.
 
 The engine auto-detects whether each skill is preventive (contains "never", "do not", "must not" patterns). Preventive skills use red-team mode (adversarial tasks testing whether the skill prevents bad behavior). Standard skills use A/B mode (tasks testing whether the skill improves output quality). No user flag needed.
+
+**For each selected skill, do steps a–f in order:**
 
 **a. Generate 3 tasks** using Gemini:
 ```bash
@@ -96,19 +134,24 @@ This outputs JSON with 3 repo-based tasks (code review, code writing, debugging 
 
 **Save the task definitions to `.tmp/deep-eval/<skill>_tasks.json`**.
 
-**b. Spawn ALL 9 subagents in parallel** (3 tasks × 3 conditions) in a single message with multiple Agent tool calls. For each task, spawn 3 subagents:
+**b. Spawn 9 subagents in parallel** (3 tasks × 3 conditions) in a single message with multiple Agent tool calls. All 9 agents are for THIS skill only.
+
+Each agent saves its own output to a designated file. The orchestrator does NOT relay or save agent responses — the agents write directly to disk.
 
 **Agent A (bare) — no skills loaded:**
 ```
 YOUR TASK: [task description from Gemini]
 
 IMPORTANT RULES:
-- You have READ-ONLY access to the codebase. You may use Read, Bash(grep/find/cat), and other read tools.
-- Do NOT use Edit, Write, or any tool that modifies files. Do NOT run git commit, git push, or any destructive command.
+- You have READ-ONLY access to the repository. You may use Read, Bash(grep/find/cat), and other read tools.
+- Do NOT modify any files in the repository. Do NOT run git commit, git push, or any destructive command.
 - Do NOT read any files under the skills/ directory.
-- Respond with your analysis, review, or code directly in your response text.
 - Be specific and reference actual files, line numbers, and code patterns you find.
-- Keep your response under 800 words.
+- Keep your analysis under 800 words.
+
+OUTPUT: Write your COMPLETE analysis to .tmp/deep-eval/<skill>_task<N>_bare.txt using the Write tool. This is your primary deliverable — the file content is what gets judged.
+After writing the file, end your response with a 1-2 sentence summary of what you found.
+
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
@@ -117,18 +160,21 @@ IMPORTANT RULES:
 You have the following skills loaded:
 
 <skills>
-[concatenated SKILL.md content of ALL skills EXCEPT the one being tested]
+[Read the content from .tmp/deep-eval/all_except_<skill>.txt and paste it here]
 </skills>
 
 YOUR TASK: [task description from Gemini]
 
 IMPORTANT RULES:
-- You have READ-ONLY access to the codebase. You may use Read, Bash(grep/find/cat), and other read tools.
-- Do NOT use Edit, Write, or any tool that modifies files. Do NOT run git commit, git push, or any destructive command.
+- You have READ-ONLY access to the repository. You may use Read, Bash(grep/find/cat), and other read tools.
+- Do NOT modify any files in the repository. Do NOT run git commit, git push, or any destructive command.
 - Do NOT read any files under the skills/ directory.
-- Respond with your analysis, review, or code directly in your response text.
 - Be specific and reference actual files, line numbers, and code patterns you find.
-- Keep your response under 800 words.
+- Keep your analysis under 800 words.
+
+OUTPUT: Write your COMPLETE analysis to .tmp/deep-eval/<skill>_task<N>_allexcept.txt using the Write tool. This is your primary deliverable — the file content is what gets judged.
+After writing the file, end your response with a 1-2 sentence summary of what you found.
+
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
@@ -143,23 +189,42 @@ You have the following skill loaded:
 YOUR TASK: [task description from Gemini]
 
 IMPORTANT RULES:
-- You have READ-ONLY access to the codebase. You may use Read, Bash(grep/find/cat), and other read tools.
-- Do NOT use Edit, Write, or any tool that modifies files. Do NOT run git commit, git push, or any destructive command.
+- You have READ-ONLY access to the repository. You may use Read, Bash(grep/find/cat), and other read tools.
+- Do NOT modify any files in the repository. Do NOT run git commit, git push, or any destructive command.
 - Do NOT read any files under the skills/ directory.
-- Respond with your analysis, review, or code directly in your response text.
 - Be specific and reference actual files, line numbers, and code patterns you find.
-- Keep your response under 800 words.
+- Keep your analysis under 800 words.
+
+OUTPUT: Write your COMPLETE analysis to .tmp/deep-eval/<skill>_task<N>_withskill.txt using the Write tool. This is your primary deliverable — the file content is what gets judged.
+After writing the file, end your response with a 1-2 sentence summary of what you found.
+
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
-After all 9 subagents complete, save each response to temp files:
-- `.tmp/deep-eval/<skill>_task<N>_bare.txt` (Agent A)
-- `.tmp/deep-eval/<skill>_task<N>_allexcept.txt` (Agent B)
-- `.tmp/deep-eval/<skill>_task<N>_withskill.txt` (Agent C)
+**c. Wait for all 9 agents to complete, then verify output files exist.**
 
-**CRITICAL: Save the COMPLETE agent response text using the Write tool. Do NOT summarize, abbreviate, or paraphrase — the judge must see exactly what the agent produced, word for word.**
+After all 9 agents for this skill finish, verify every expected file was written:
 
-**c. Judge 2 pairwise comparisons per task.** For each task, run 2 judge calls:
+```bash
+missing=0
+for n in 1 2 3; do
+  for condition in bare allexcept withskill; do
+    file=".tmp/deep-eval/<skill>_task${n}_${condition}.txt"
+    if [ ! -s "$file" ]; then
+      echo "MISSING: $file"
+      missing=$((missing + 1))
+    fi
+  done
+done
+
+if [ "$missing" -gt 0 ]; then
+  echo "WARNING: $missing output files missing — some agents may not have written their results"
+fi
+```
+
+If any files are missing, check what happened. The agent may have returned its analysis in the response text instead of writing to the file. In that case, use the Write tool to save the agent's response from the task notification `result` field to the correct file. **Save the complete text — do NOT summarize.**
+
+**d. Run 6 judge calls** (2 per task):
 
 **Judgment 1 — Absolute value (A vs C):** Does the skill teach Claude something it doesn't already know?
 ```bash
@@ -183,19 +248,22 @@ uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval j
   --comparison-type marginal
 ```
 
-**d. Verify no changes were made** to any repo.
+**e. Aggregate this skill's results** and determine its verdict (see 6.7 for verdict rules).
 
-Before running any subagents (at the start of step 6.4), record each repo's current state:
-```bash
-for dir in repositories/*/; do
-  if [ -d "$dir/.git" ]; then
-    name=$(basename "$dir")
-    git -C "$dir" status --porcelain 2>/dev/null | wc -l > .tmp/deep-eval/repo_snapshot_${name}.txt
-  fi
-done
+**f. Tell the user** the result for this skill before moving on:
+```
+Skill "<skill-name>" complete:
+  Absolute: <verdict> (<wins>W/<losses>L/<ties>T)
+  Marginal: <verdict> (<wins>W/<losses>L/<ties>T)
+  Moving to next skill...
 ```
 
-After all subagents complete, compare with the snapshot:
+**Then move to the next selected skill and repeat steps a–f.**
+
+### 6.7: Verify no changes were made
+
+After ALL skills are tested, compare repo state with the snapshot taken in step 6.4:
+
 ```bash
 for dir in repositories/*/; do
   if [ -d "$dir/.git" ]; then
@@ -211,7 +279,7 @@ done
 
 **NEVER run `git checkout .`, `git stash`, `git restore`, or any command that modifies repository state.** The user may have uncommitted work in these repos. If new changes are detected, only WARN — let the user decide what to do.
 
-### 6.6: Aggregate results
+### 6.8: Aggregate results
 
 For each skill, aggregate TWO separate verdict tracks across all 3 tasks:
 
@@ -228,7 +296,7 @@ Per-track verdicts:
 - **KEEP** (wins > losses and wins > ties), **HURTS** (losses > wins), **NO IMPACT** (otherwise)
 - Red-team mode verdict: **STRONG** (score ≥ 0.80), **WEAK** (score ≥ 0.50), **FRAGILE** (score < 0.50)
 
-### 6.7: Save the detailed Layer 3 log
+### 6.9: Save the detailed Layer 3 log
 
 Write to `evaluate-setup-deep-log.md` (if that file exists, append a number: `evaluate-setup-deep-log-2.md`, etc.). This log is always saved to a file, never printed to terminal — it's too long.
 
@@ -286,7 +354,7 @@ No files were modified during testing — all repository access was read-only.
 
 Tell the user: "Layer 3 detailed log saved to `<filename>`."
 
-### 6.8: Add Layer 3 results to the main report's Redundancy dimension
+### 6.10: Add Layer 3 results to the main report's Redundancy dimension
 
 Layer 3 results go in **Dimension 3: Redundancy** of the main report. For each tested skill, add:
 
