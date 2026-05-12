@@ -127,40 +127,37 @@ The engine auto-detects whether each skill is preventive (contains "never", "do 
 **For each selected skill, do steps a–f in order:**
 
 **a. Generate 3 tasks** using Gemini:
+
+First, identify the skill's target language from its content (e.g., Python, JavaScript, general). When building the repos.json, include a `language` field for each repo (detect from file extensions or README). Pass the skill's language so Gemini picks repos that match — a Python skill should not get tasks on JavaScript repos.
+
 ```bash
 uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval generate-tasks <SKILL_DIR> --repos-file .tmp/deep-eval/repos.json
 ```
 This outputs JSON with 3 repo-based tasks (code review, code writing, debugging — on the user's actual repositories). Tasks create situations where the skill's rules would naturally apply, rather than asking the agent to explain the skill's rules.
 
+**Important:** If the skill is language-specific and no matching-language repos exist, warn the user and use the closest available repos. Note the mismatch in the report.
+
 **Save the task definitions to `.tmp/deep-eval/<skill>_tasks.json`**.
 
-**b. Spawn 9 subagents in parallel** (3 tasks × 3 conditions) in a single message with multiple Agent tool calls. All 9 agents are for THIS skill only.
+**b. Spawn 6 subagents in parallel** (3 tasks × 2 conditions) in a single message with multiple Agent tool calls. All 6 agents are for THIS skill only.
 
 Each agent saves its own output to a designated file. The orchestrator does NOT relay or save agent responses — the agents write directly to disk.
 
-**Agent A (bare) — no skills loaded:**
-```
-YOUR TASK: [task description from Gemini]
+Two conditions per task:
+- **Agent A (all-except):** All skills EXCEPT the tested one — tests marginal value
+- **Agent B (with-skill):** Only the tested skill loaded — tests with the skill active
 
-IMPORTANT RULES:
-- You have READ-ONLY access to the repository. You may use Read, Bash(grep/find/cat), and other read tools.
-- Do NOT modify any files in the repository. Do NOT run git commit, git push, or any destructive command.
-- Do NOT read any files under the skills/ directory.
-- Be specific and reference actual files, line numbers, and code patterns you find.
-- Keep your analysis under 800 words.
+No bare condition — the marginal comparison (all-except vs with-skill) is the primary verdict and determines whether the skill earns its place. The absolute comparison (bare vs with-skill) was dropped because it doesn't answer the key question: "does this skill add value beyond what other skills already provide?"
 
-OUTPUT: Write your COMPLETE analysis to .tmp/deep-eval/<skill>_task<N>_bare.txt using the Write tool. This is your primary deliverable — the file content is what gets judged.
-After writing the file, end your response with a 1-2 sentence summary of what you found.
+**Agent A (all-except) — all skills EXCEPT the tested one loaded:**
 
-[If task has a repo]: Work in the repository at: [repo path]
-```
+Read the file `.tmp/deep-eval/all_except_<skill>.txt` and INLINE its full content directly into the agent prompt below. Do NOT tell the agent to read the file — paste the content so the agent has it in its prompt from the start.
 
-**Agent B (all-except) — all skills EXCEPT the tested one loaded:**
 ```
 You have the following skills loaded:
 
 <skills>
-[Read the content from .tmp/deep-eval/all_except_<skill>.txt and paste it here]
+[INLINE the full content of .tmp/deep-eval/all_except_<skill>.txt here — do NOT use a file pointer]
 </skills>
 
 YOUR TASK: [task description from Gemini]
@@ -178,7 +175,7 @@ After writing the file, end your response with a 1-2 sentence summary of what yo
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
-**Agent C (with-skill) — the tested skill loaded:**
+**Agent B (with-skill) — the tested skill loaded:**
 ```
 You have the following skill loaded:
 
@@ -201,14 +198,14 @@ After writing the file, end your response with a 1-2 sentence summary of what yo
 [If task has a repo]: Work in the repository at: [repo path]
 ```
 
-**c. Wait for all 9 agents to complete, then verify output files exist.**
+**c. Wait for all 6 agents to complete, then verify output files exist.**
 
-After all 9 agents for this skill finish, verify every expected file was written:
+After all 6 agents for this skill finish, verify every expected file was written:
 
 ```bash
 missing=0
 for n in 1 2 3; do
-  for condition in bare allexcept withskill; do
+  for condition in allexcept withskill; do
     file=".tmp/deep-eval/<skill>_task${n}_${condition}.txt"
     if [ ! -s "$file" ]; then
       echo "MISSING: $file"
@@ -224,20 +221,21 @@ fi
 
 If any files are missing, check what happened. The agent may have returned its analysis in the response text instead of writing to the file. In that case, use the Write tool to save the agent's response from the task notification `result` field to the correct file. **Save the complete text — do NOT summarize.**
 
-**d. Run 6 judge calls** (2 per task):
+**d. Screen response quality before judging.**
 
-**Judgment 1 — Absolute value (A vs C):** Does the skill teach Claude something it doesn't already know?
-```bash
-uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval judge \
-  "<TASK_DESCRIPTION>" \
-  .tmp/deep-eval/<skill>_task<N>_withskill.txt \
-  .tmp/deep-eval/<skill>_task<N>_bare.txt \
-  \
-  --skill-file <SKILL_DIR>/SKILL.md \
-  --comparison-type absolute
-```
+For each of the 3 tasks, check whether the agent responses are complete enough to compare. Read both output files (allexcept, withskill) for the task and check:
 
-**Judgment 2 — Marginal value (B vs C):** Does the skill add value beyond what OTHER skills already provide?
+- Are any responses truncated mid-sentence or mid-code-block?
+- Are any responses under 500 bytes (likely incomplete)?
+- Did the task produce a language mismatch (e.g., Python skill but JavaScript repo)?
+
+If a task has clearly unusable responses (both truncated, language mismatch making comparison meaningless), mark it as `skipped_poor_quality` with a reason and do NOT run judge calls for it. This saves API calls on tests that can't produce meaningful signal.
+
+If responses look reasonable (even if imperfect), proceed to judging — the judge also reports `test_quality` as a second filter.
+
+**e. Run 3 judge calls** (1 per non-skipped task):
+
+**Marginal value (A vs B):** Does the skill add value beyond what OTHER skills already provide?
 ```bash
 uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval judge \
   "<TASK_DESCRIPTION>" \
@@ -248,9 +246,11 @@ uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval j
   --comparison-type marginal
 ```
 
-**e. Aggregate this skill's results** and determine its verdict (see 6.7 for verdict rules).
+This is the only comparison that matters — it answers "does this skill earn its place in the full setup?"
 
-**f. Tell the user** the result for this skill before moving on:
+**f. Aggregate this skill's results** and determine its verdict (see 6.8 for verdict rules).
+
+**g. Tell the user** the result for this skill before moving on:
 ```
 Skill "<skill-name>" complete:
   Absolute: <verdict> (<wins>W/<losses>L/<ties>T)
@@ -281,18 +281,15 @@ done
 
 ### 6.8: Aggregate results
 
-For each skill, aggregate TWO separate verdict tracks across all 3 tasks:
-
-**Absolute value** (bare vs with-skill): Does the skill teach Claude something it doesn't already know?
-- Count wins, losses, ties, inconclusive from Judgment 1 results
+For each skill, aggregate the marginal verdict across all 3 tasks. **Only count tasks with good test quality.** Exclude:
+- Tasks skipped in the pre-judge screening (step 6.6d)
+- Tasks where the judge reported `test_quality: "poor"` — these are noted in the report but don't count toward the verdict
 
 **Marginal value** (all-except vs with-skill): Does the skill add value beyond what OTHER skills provide?
-- Count wins, losses, ties, inconclusive from Judgment 2 results
+- Count wins, losses, ties from good-quality judge results only
 
-**The marginal value is the primary verdict** — it determines if the skill earns its place in the full setup.
-
-Per-track verdicts:
-- If 2+ tasks are inconclusive → **INCONCLUSIVE**
+Verdicts (based on good-quality tasks only):
+- If 0 good-quality tasks remain → **INCONCLUSIVE** (all tests were poor quality)
 - **KEEP** (wins > losses and wins > ties), **HURTS** (losses > wins), **NO IMPACT** (otherwise)
 - Red-team mode verdict: **STRONG** (score ≥ 0.80), **WEAK** (score ≥ 0.50), **FRAGILE** (score < 0.50)
 
@@ -311,17 +308,15 @@ Write to `evaluate-setup-deep-log.md` (if that file exists, append a number: `ev
 ## How This Evaluation Works
 
 For each skill below, we ran 3 tasks on your actual repositories.
-Each task was run THREE times:
-- **Agent A (bare):** Claude with no skills loaded
-- **Agent B (all-except):** Claude with all skills EXCEPT the tested one
-- **Agent C (with-skill):** Claude with the tested skill loaded
+Each task was run TWICE:
+- **Agent A (all-except):** Claude with all skills EXCEPT the tested one
+- **Agent B (with-skill):** Claude with the tested skill loaded
 
-Two pairwise judgments per task:
-- **Absolute (A vs C):** Does the skill teach Claude something it doesn't know?
-- **Marginal (B vs C):** Does the skill add value beyond what OTHER skills provide?
+One judgment per task:
+- **Marginal (A vs B):** Does the skill add value beyond what OTHER skills provide?
 
-Gemini judges each pair with 3 blind votes (majority wins). The marginal
-verdict is what determines if the skill earns its place in the full setup.
+Gemini judges each pair with 3 blind votes (majority wins).
+Tasks with poor test quality are excluded from the verdict.
 
 No files were modified during testing — all repository access was read-only.
 
@@ -333,12 +328,10 @@ No files were modified during testing — all repository access was read-only.
 
 ### Task 1 (review on repo-name): [task description]
 
-**Response A (bare):** [summary]
-**Response B (all-except):** [summary]
-**Response C (with-skill):** [summary]
+**Response A (all-except):** [summary]
+**Response B (with-skill):** [summary]
 
-**Absolute (A vs C):** with_skill (HIGH) — unique
-**Marginal (B vs C):** with_skill (HIGH) — unique
+**Marginal:** with_skill (HIGH) — unique
 
 ---
 
@@ -347,39 +340,28 @@ No files were modified during testing — all repository access was read-only.
 ---
 
 ### Skill Verdict
-  Absolute:  KEEP (3 wins, 0 losses, 1 tie) — skill teaches Claude new things
-  Marginal:  KEEP (2 wins, 0 losses, 2 ties) — skill adds value beyond other skills
-  Final:     KEEP (marginal is the primary verdict)
+  Marginal:  KEEP (2 wins, 0 losses, 1 tie) — skill adds value beyond other skills
 ```
 
 Tell the user: "Layer 3 detailed log saved to `<filename>`."
 
 ### 6.10: Add Layer 3 results to the main report's Redundancy dimension
 
-Layer 3 results go in **Dimension 3: Redundancy** of the main report. For each tested skill, add:
+Layer 3 results go in the main report. For each tested skill, add:
 
 ```
 ### Layer 3 A/B Results: skill-name
 
-| Task | Absolute (bare vs skill) | Marginal (all-except vs skill) |
-|---|---|---|
-| Task 1 (review) | with_skill (HIGH) | tie (LOW) |
-| Task 2 (review) | with_skill (HIGH) | with_skill (HIGH) |
-| Task 3 (write) | with_skill (LOW) | with_skill (LOW) |
-| Task 4 (debug) | tie (LOW) | tie (LOW) |
-| **Verdict** | **KEEP (2W/0L/2T)** | **KEEP (2W/0L/2T)** |
-
-Absolute: skill teaches Claude things it doesn't already know
-Marginal: skill adds value beyond what other skills provide
+| Task | Repo | Description | Marginal (all-except vs skill) |
+|---|---|---|---|
+| 1 | site-analysis | Review server.py for refactoring | with_skill (HIGH) |
+| 2 | eval-playground | Implement SimilarityScorer | tie (LOW) |
+| 3 | qe-ds-il-agent | Debug search result failures | with_skill (HIGH) |
+| **Verdict** | | | **KEEP (2W/0L/1T)** |
 ```
 
-When the marginal verdict is different from absolute, highlight it:
+Only include tasks with good test quality in the table. Note excluded tasks below:
 ```
-Layer 3 (A/B): NO IMPACT — 1 win, 1 loss, 2 ties (LOW confidence)
-  Redundancy signal: redundant — both agents applied the same conventions,
-  meaning Claude already knows this content without the skill
-  See evaluate-setup-deep-log.md for full details.
+Tasks excluded due to poor test quality:
+  Task 2: Both responses truncated mid-implementation.
 ```
-
-If Layer 3 was NOT selected but some skills scored 2 stars or below in L2:
-- Suggest: "N skills scored poorly. Consider running Layer 3 to verify with A/B testing. Requires GOOGLE_API_KEY in your .env."
