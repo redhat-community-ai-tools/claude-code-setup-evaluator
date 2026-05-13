@@ -10,6 +10,7 @@ from the_evaluator.config.loader import load_config
 import yaml
 
 from the_evaluator.engine.engine import (
+    _is_nested_repo,
     lint_agent,
     lint_claude_md,
     lint_command,
@@ -73,19 +74,11 @@ def cli():
     help="Evaluation preset (default: recommended)",
 )
 @click.option("--config", "config_file", type=click.Path(), default=None)
-@click.option("--commands", is_flag=True, help="Also evaluate commands")
-@click.option("--claude-md", "claude_md", is_flag=True, help="Also evaluate CLAUDE.md")
-@click.option("--hooks", is_flag=True, help="Also evaluate hooks")
-@click.option("--all", "scan_all", is_flag=True, help="Evaluate everything: skills + commands + CLAUDE.md + hooks")
 @click.option("--target", default=None, help="Focus on a single skill by name")
 def scan(
     path: str,
     preset: str | None,
     config_file: str | None,
-    commands: bool,
-    claude_md: bool,
-    hooks: bool,
-    scan_all: bool,
     target: str | None,
 ):
     """Run Layer 1 static analysis on your Claude Code setup."""
@@ -104,36 +97,32 @@ def scan(
         all_results.extend(skill_results)
 
     # --- Commands ---
-    if commands or scan_all:
-        cmd_dirs = _find_commands(scan_path)
-        for cmd_dir in cmd_dirs:
-            all_results.append(lint_command(str(cmd_dir), config.rules))
+    cmd_dirs = _find_commands(scan_path)
+    for cmd_dir in cmd_dirs:
+        all_results.append(lint_command(str(cmd_dir), config.rules))
 
     # --- CLAUDE.md ---
-    if claude_md or scan_all:
-        parsed_skills = [parse_skill(str(r.target_path)) for r in skill_results] if skill_results else []
-        claude_paths = _find_claude_mds(scan_path)
-        if claude_paths:
-            for claude_path in claude_paths:
-                all_results.append(lint_claude_md(str(claude_path), config.rules, parsed_skills))
-        else:
-            all_results.append(lint_claude_md(str(scan_path / "CLAUDE.md"), config.rules, parsed_skills))
+    parsed_skills = [parse_skill(str(r.target_path)) for r in skill_results] if skill_results else []
+    claude_paths = _find_claude_mds(scan_path)
+    if claude_paths:
+        for claude_path in claude_paths:
+            all_results.append(lint_claude_md(str(claude_path), config.rules, parsed_skills))
+    else:
+        all_results.append(lint_claude_md(str(scan_path / "CLAUDE.md"), config.rules, parsed_skills))
 
     # --- Hooks ---
-    if hooks or scan_all:
-        for settings_path in _find_settings(scan_path):
-            all_results.append(lint_hooks(str(settings_path), config.rules))
+    for settings_path in _find_settings(scan_path):
+        all_results.append(lint_hooks(str(settings_path), config.rules))
 
     # --- Agents ---
-    if scan_all:
-        agent_files = _find_agents(scan_path)
-        if agent_files:
-            parsed_skills = (
-                [parse_skill(str(r.target_path)) for r in skill_results]
-                if skill_results else []
-            )
-            for agent_file in agent_files:
-                all_results.append(lint_agent(str(agent_file), config.rules, parsed_skills))
+    agent_files = _find_agents(scan_path)
+    if agent_files:
+        parsed_skills = (
+            [parse_skill(str(r.target_path)) for r in skill_results]
+            if skill_results else []
+        )
+        for agent_file in agent_files:
+            all_results.append(lint_agent(str(agent_file), config.rules, parsed_skills))
 
     # --- Output ---
     total_tokens = sum(r.tokens for r in all_results)
@@ -235,6 +224,8 @@ def _find_agents(scan_path: Path) -> list[Path]:
             continue
         if not excluded.isdisjoint(rel_parts):
             continue
+        if _is_nested_repo(agents_dir, scan_path):
+            continue
         for md_file in sorted(agents_dir.glob("*.md")):
             resolved = md_file.resolve()
             if resolved not in {r.resolve() for r in results}:
@@ -247,6 +238,8 @@ def _find_agents(scan_path: Path) -> list[Path]:
             except ValueError:
                 continue
             if not excluded.isdisjoint(rel_parts):
+                continue
+            if _is_nested_repo(md_file, scan_path):
                 continue
             if md_file.parent.name == "agents":
                 continue

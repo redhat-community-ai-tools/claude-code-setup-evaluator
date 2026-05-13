@@ -35,6 +35,18 @@ def _count_tokens(text: str) -> int:
     return len(_ENCODER.encode(text))
 
 
+def _is_nested_repo(child: Path, scan_root: Path) -> bool:
+    """True if any directory between scan_root and child is a separate git repo."""
+    current = child if child.is_dir() else child.parent
+    scan_root = scan_root.resolve()
+    current = current.resolve()
+    while current != scan_root and len(current.parts) > len(scan_root.parts):
+        if (current / ".git").exists():
+            return True
+        current = current.parent
+    return False
+
+
 def _interpolate(template: str, data: dict[str, str | int] | None) -> str:
     if not data:
         return template
@@ -317,10 +329,16 @@ def parse_agent(agent_path: str) -> ParsedAgent:
         referenced_skills = [s.strip() for s in referenced_skills.split(",")]
 
     disallowed_raw = frontmatter.get("disallowedTools", "") or ""
-    disallowed_tools = [t.strip() for t in disallowed_raw.split(",") if t.strip()]
+    if isinstance(disallowed_raw, list):
+        disallowed_tools = [str(t).strip() for t in disallowed_raw if str(t).strip()]
+    else:
+        disallowed_tools = [t.strip() for t in disallowed_raw.split(",") if t.strip()]
 
     allowed_raw = frontmatter.get("tools", "") or ""
-    allowed_tools = [t.strip() for t in allowed_raw.split(",") if t.strip()]
+    if isinstance(allowed_raw, list):
+        allowed_tools = [str(t).strip() for t in allowed_raw if str(t).strip()]
+    else:
+        allowed_tools = [t.strip() for t in allowed_raw.split(",") if t.strip()]
 
     model = frontmatter.get("model")
 
@@ -599,11 +617,11 @@ def lint_directory(
     if not path.is_dir():
         return results
 
-    excluded = {".git", ".venv", "node_modules", "repositories", "__pycache__", "tests"}
+    excluded = {".git", ".venv", "node_modules", "__pycache__", "tests"}
     skill_dirs: list[Path] = []
     for p in sorted(path.rglob("SKILL.md")):
         relative_parts = p.relative_to(path).parts
-        if excluded.isdisjoint(relative_parts):
+        if excluded.isdisjoint(relative_parts) and not _is_nested_repo(p, path):
             skill_dirs.append(p.parent)
 
     if not skill_dirs and (path / "SKILL.md").exists():
