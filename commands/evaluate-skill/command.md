@@ -46,7 +46,9 @@ Ask using AskUserQuestion:
 - **Terminal** — print results here
 - **File** — save to a file
 
-If file: save to `evaluation-results/evaluate-skill-<skill-name>-YYYY-MM-DD.md`. Create the `evaluation-results/` directory if it doesn't exist. If the file already exists (second run same day), append a counter: `-2`, `-3`, etc.
+If file: save all output to `evaluation-results/<skill-name>-evaluation/`. Create the directory if it doesn't exist. Files inside use datetime in the name:
+- Report: `evaluate-skill-<skill-name>-YYYY-MM-DD-HHMM.md`
+- Log (Layer 3 raw output, if applicable): `evaluate-skill-<skill-name>-YYYY-MM-DD-HHMM-log.md`
 
 ## Step 3: Run Layer 1 (Rules)
 
@@ -198,12 +200,13 @@ The Layer 1 + Layer 2 results above are still valid.
 ### 5.3: Run the A/B test
 
 Read `commands/evaluate-skill/layer3-protocol.md` steps 6.5–6.8 for the full protocol:
-- Pre-build the allexcept file for this skill
+- Pre-build the allexcept file for this skill (with condensation if >25KB)
 - Discover repos and snapshot state
-- Generate 3 tasks (Gemini)
+- Generate 3 tasks (Gemini) — review, write, debug
+- Validate task premises against actual repos
 - Spawn 6 agents (3 tasks × 2 conditions: allexcept + withskill)
 - Verify all 6 output files exist
-- Screen response quality, then run 3 marginal judge calls
+- Screen response quality, then run 3 blind judge calls (5-dimension scoring)
 - Aggregate results (good-quality tasks only)
 
 ## Step 6: Produce the Report
@@ -268,13 +271,15 @@ Map each Layer 1 diagnostic to its corresponding check. Checks with no diagnosti
 
 Only include tasks where the judge rated test quality as "good." Tasks rated "poor" are excluded from the table and verdict — note them below with the reason.
 
+The judge uses blind 5-dimension scoring — it does NOT see the skill content. Dimension deltas show where the skill helps (positive) or hurts (negative).
+
 [If tested:]
-| Task | Repo | Description | Marginal |
-|------|------|-------------|----------|
-| 1 | site-analysis | Review server.py for refactoring opportunities | tie (HIGH) |
-| 2 | qe-ds-il-agent | Debug search result processing failures | with_skill (HIGH) |
-| 3 | eval-playground | Implement SimilarityScorer utility | tie (LOW) |
-| **Overall** | | | **NO IMPACT (1W/0L/2T)** |
+| Task | Repo | Description | Winner | Acc | Spec | Action | Comp | Posture |
+|------|------|-------------|--------|-----|------|--------|------|---------|
+| 1 | site-analysis | Review server.py for refactoring | with_skill (HIGH) | +1.0 | +1.7 | +0.3 | +0.7 | +1.0 |
+| 2 | qe-ds-il-agent | Debug search result processing | with_skill (HIGH) | +0.7 | +1.3 | +0.7 | +1.0 | +0.3 |
+| 3 | eval-playground | Implement SimilarityScorer | tie (LOW) | 0.0 | +0.3 | -0.3 | 0.0 | 0.0 |
+| **Overall** | | | **KEEP (2W/0L/1T)** | **+0.6** | **+1.1** | **+0.2** | **+0.6** | **+0.4** |
 
 [Tasks excluded due to poor test quality:]
   Task 3 (evaluation-playground): Both responses truncated mid-implementation — judge couldn't compare.
@@ -300,7 +305,7 @@ Suggestions:
 Evaluation complete for "<skill-name>":
   Layer 1: [N errors, N warnings]
   Layer 2: ★★★★ [verdict] — [one-line summary]
-  Layer 3: [verdict] ([W]W/[L]L/[T]T) or "skipped (not testable)"
+  Layer 3: [verdict] ([W]W/[L]L/[T]T) — strongest: [dim] (+X.X), weakest: [dim] (+X.X)
   Final:   [KEEP / REVIEW / REMOVE]
 
 [Full report: saved to <filename> | printed above]

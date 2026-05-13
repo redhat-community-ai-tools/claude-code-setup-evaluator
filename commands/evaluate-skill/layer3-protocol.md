@@ -85,6 +85,8 @@ for dir in repositories/*/; do
 done
 ```
 
+**Important:** Identify the skill's target language from its content (e.g., Python, JavaScript, general). When building the repos.json, include a `language` field for each repo (detect from file extensions or README). Pass the skill's language so Gemini picks repos that match — a Python skill should not get tasks on JavaScript repos.
+
 ### 6.5: Prepare allexcept prompt files
 
 **Do this ONCE, before processing any skill.** This is a mechanical step — build it early when context is fresh.
@@ -118,6 +120,23 @@ done
 
 Do NOT skip this step. Do NOT build allexcept prompts on the fly during agent dispatch — use these pre-built files.
 
+**Size check and condensation:** After building each allexcept file, check its size:
+```bash
+size=$(wc -c < ".tmp/deep-eval/all_except_${skill_name}.txt")
+echo "$skill_name allexcept: $size bytes"
+```
+
+If the file exceeds 25,000 bytes, build a condensed companion:
+1. For each skill in the allexcept file, keep: full YAML frontmatter, any "When to Activate" / "When to Use" section, any lines containing MUST/NEVER/ALWAYS rules, and the first 200 characters of each remaining section followed by `[... truncated]`
+2. Save to `.tmp/deep-eval/all_except_${skill_name}_condensed.txt`
+3. Use the condensed version in the agent prompt instead of the full version
+4. Log: `"Using condensed allexcept for $skill_name ($size bytes → condensed)"`
+
+When inlining allexcept content into the agent prompt:
+- Read the allexcept file completely — do not skip or summarize
+- If using condensed version, change the agent prompt preamble to: "You have the following skills loaded (condensed — frontmatter and key rules preserved):"
+- NEVER silently truncate — either use the full version or explicitly use the condensed version
+
 ### 6.6: Run A/B tests — one skill at a time
 
 **Process each selected skill sequentially.** Complete ALL steps (agents → verify files → judge → verdict) for one skill before starting the next. Do NOT start the next skill until the current one is fully judged.
@@ -128,16 +147,29 @@ The engine auto-detects whether each skill is preventive (contains "never", "do 
 
 **a. Generate 3 tasks** using Gemini:
 
-First, identify the skill's target language from its content (e.g., Python, JavaScript, general). When building the repos.json, include a `language` field for each repo (detect from file extensions or README). Pass the skill's language so Gemini picks repos that match — a Python skill should not get tasks on JavaScript repos.
-
 ```bash
 uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval generate-tasks <SKILL_DIR> --repos-file .tmp/deep-eval/repos.json
 ```
-This outputs JSON with 3 repo-based tasks (code review, code writing, debugging — on the user's actual repositories). Tasks create situations where the skill's rules would naturally apply, rather than asking the agent to explain the skill's rules.
+This outputs JSON with 3 repo-based tasks: code review, code writing, and debugging. All 3 tasks create situations where the skill's rules would naturally apply.
 
 **Important:** If the skill is language-specific and no matching-language repos exist, warn the user and use the closest available repos. Note the mismatch in the report.
 
 **Save the task definitions to `.tmp/deep-eval/<skill>_tasks.json`**.
+
+**a2. Validate task premises:**
+
+After generating tasks, verify each task's premise holds for its target repository:
+
+```bash
+uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval validate-tasks .tmp/deep-eval/<skill>_tasks.json
+```
+
+Read the validation output. If any task fails validation:
+1. Log the failure reason
+2. Regenerate tasks with the additional constraint: "Do NOT reference [failed premise] in [repo]."
+3. Re-validate. If still failing after 1 retry, use the task anyway but flag it in the report.
+
+Save validation results to `.tmp/deep-eval/<skill>_validation.json`.
 
 **b. Spawn 6 subagents in parallel** (3 tasks × 2 conditions) in a single message with multiple Agent tool calls. All 6 agents are for THIS skill only.
 
@@ -241,10 +273,10 @@ uv run --project "$PROJECT_DIR" --extra deep python -m the_evaluator.deep_eval j
   "<TASK_DESCRIPTION>" \
   .tmp/deep-eval/<skill>_task<N>_withskill.txt \
   .tmp/deep-eval/<skill>_task<N>_allexcept.txt \
-  \
-  --skill-file <SKILL_DIR>/SKILL.md \
   --comparison-type marginal
 ```
+
+The judge uses blind dimension scoring — it does NOT see the skill content. It scores both responses on accuracy, specificity, actionability, and completeness (1-5 each), then determines the winner by total score difference.
 
 This is the only comparison that matters — it answers "does this skill earn its place in the full setup?"
 
@@ -253,8 +285,8 @@ This is the only comparison that matters — it answers "does this skill earn it
 **g. Tell the user** the result for this skill before moving on:
 ```
 Skill "<skill-name>" complete:
-  Absolute: <verdict> (<wins>W/<losses>L/<ties>T)
   Marginal: <verdict> (<wins>W/<losses>L/<ties>T)
+  Strongest dimension: <dim> (+X.X), weakest: <dim> (+X.X)
   Moving to next skill...
 ```
 
@@ -281,12 +313,16 @@ done
 
 ### 6.8: Aggregate results
 
-For each skill, aggregate the marginal verdict across all 3 tasks. **Only count tasks with good test quality.** Exclude:
+For each skill, aggregate the marginal verdict across all tasks. **Only count tasks with good test quality.** Exclude:
 - Tasks skipped in the pre-judge screening (step 6.6d)
 - Tasks where the judge reported `test_quality: "poor"` — these are noted in the report but don't count toward the verdict
 
 **Marginal value** (all-except vs with-skill): Does the skill add value beyond what OTHER skills provide?
 - Count wins, losses, ties from good-quality judge results only
+
+**Dimension deltas:** For each good-quality task, read the `dimension_deltas` from the judge output. Average the deltas across all good-quality tasks to produce overall dimension scores. Report the strongest dimension (highest positive delta) and weakest dimension (lowest or most negative delta). The 5 dimensions are: accuracy, specificity, actionability, completeness, response_posture.
+
+If all dimension deltas are within [-0.5, +0.5], the skill has NO IMPACT regardless of win/loss count — the differences are noise.
 
 Verdicts (based on good-quality tasks only):
 - If 0 good-quality tasks remain → **INCONCLUSIVE** (all tests were poor quality)
@@ -307,7 +343,7 @@ Write to `evaluate-setup-deep-log.md` (if that file exists, append a number: `ev
 
 ## How This Evaluation Works
 
-For each skill below, we ran 3 tasks on your actual repositories.
+For each skill below, we ran 3 tasks on your actual repositories (review, write, debug).
 Each task was run TWICE:
 - **Agent A (all-except):** Claude with all skills EXCEPT the tested one
 - **Agent B (with-skill):** Claude with the tested skill loaded
@@ -315,7 +351,7 @@ Each task was run TWICE:
 One judgment per task:
 - **Marginal (A vs B):** Does the skill add value beyond what OTHER skills provide?
 
-Gemini judges each pair with 3 blind votes (majority wins).
+Gemini judges each pair with 3 blind votes using dimension scoring (accuracy, specificity, actionability, completeness, response_posture). The judge does NOT see the skill content — it evaluates purely on output quality.
 Tasks with poor test quality are excluded from the verdict.
 
 No files were modified during testing — all repository access was read-only.
@@ -331,16 +367,16 @@ No files were modified during testing — all repository access was read-only.
 **Response A (all-except):** [summary]
 **Response B (with-skill):** [summary]
 
-**Marginal:** with_skill (HIGH) — unique
+**Marginal:** with_skill (HIGH)
+**Dimensions:** accuracy +1.0, specificity +1.7, actionability +0.3, completeness +0.7, response_posture +0.3
 
 ---
 
-[Task 3 follows same format]
-
----
+[Tasks 2-3 follow same format]
 
 ### Skill Verdict
   Marginal:  KEEP (2 wins, 0 losses, 1 tie) — skill adds value beyond other skills
+  Dimensions: strongest specificity (+1.7), weakest response_posture (+0.3)
 ```
 
 Tell the user: "Layer 3 detailed log saved to `<filename>`."
@@ -352,15 +388,18 @@ Layer 3 results go in the main report. For each tested skill, add:
 ```
 ### Layer 3 A/B Results: skill-name
 
-| Task | Repo | Description | Marginal (all-except vs skill) |
-|---|---|---|---|
-| 1 | site-analysis | Review server.py for refactoring | with_skill (HIGH) |
-| 2 | eval-playground | Implement SimilarityScorer | tie (LOW) |
-| 3 | qe-ds-il-agent | Debug search result failures | with_skill (HIGH) |
-| **Verdict** | | | **KEEP (2W/0L/1T)** |
+| Task | Repo | Description | Winner | Acc | Spec | Action | Comp | Posture |
+|---|---|---|---|---|---|---|---|---|
+| 1 | site-analysis | Review server.py for refactoring | with_skill (HIGH) | +1.0 | +1.7 | +0.3 | +0.7 | +1.0 |
+| 2 | eval-playground | Implement SimilarityScorer | tie (LOW) | 0.0 | +0.3 | -0.3 | 0.0 | 0.0 |
+| 3 | qe-ds-il-agent | Debug search result failures | with_skill (HIGH) | +0.7 | +1.3 | +0.7 | +1.0 | +0.3 |
+| **Overall** | | | **KEEP (2W/0L/1T)** | **+0.6** | **+1.1** | **+0.2** | **+0.6** | **+0.4** |
+
+Dimension deltas are (with_skill score - without_skill score) averaged across 3 judge votes.
+Positive = skill helps on that dimension. Negative = skill hurts.
 ```
 
-Only include tasks with good test quality in the table. Note excluded tasks below:
+Only include tasks with good test quality in the main table. Note excluded tasks below:
 ```
 Tasks excluded due to poor test quality:
   Task 2: Both responses truncated mid-implementation.
