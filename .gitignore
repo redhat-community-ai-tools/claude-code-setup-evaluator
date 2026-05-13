@@ -112,9 +112,8 @@ repositories/*
 /site
 /.ai-workspace/site
 
-# Evaluation output files (reports, logs) — always write to .tmp/
-evaluate-setup-report*.md
-evaluate-setup-deep-log*.md
+# Evaluation output files (reports, logs)
+evaluation-results/
 
 # Paper / blog drafts (local only, not published via repo)
 paper/

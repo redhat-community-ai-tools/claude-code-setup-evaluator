@@ -46,7 +46,7 @@ Ask using AskUserQuestion:
 - **Terminal** — print results here
 - **File** — save to a file
 
-If file: check if `evaluate-skill-<skill-name>.md` exists and ask for a different name if so.
+If file: save to `evaluation-results/evaluate-skill-<skill-name>-YYYY-MM-DD.md`. Create the `evaluation-results/` directory if it doesn't exist. If the file already exists (second run same day), append a counter: `-2`, `-3`, etc.
 
 ## Step 3: Run Layer 1 (Rules)
 
