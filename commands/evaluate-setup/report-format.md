@@ -2,9 +2,9 @@
 
 ### Step 5a: Full Review
 
-If the user chose **terminal output**, print the full review directly. If they chose **file output**, write it to the chosen filename and tell the user where to find it.
+If the user chose **terminal output**, print the full review directly. If they chose **file output**, write it to `evaluation-results/evaluate-setup-YYYY-MM-DD.md` (create the directory if needed; if the file exists, append a counter: `-2`, `-3`, etc.) and tell the user where to find it.
 
-Full review format — **structured around the four evaluation dimensions**:
+Full review format:
 
 ```
 ## How This Evaluation Works
@@ -16,27 +16,56 @@ This report evaluates the Claude Code setup across four dimensions:
 - **Redundancy** — Is each component adding value beyond defaults and other components?
 - **Compliance** — Does each component follow Anthropic's published best practices?
 
-Three layers produce the evidence:
+Two layers produce the evidence:
 
-**Layer 1 (Static Analysis)** — A set of Python rules that run
-deterministically on every file. Each rule checks one thing mechanically:
-does the file exist? Does the YAML parse? Are referenced files real? Is the
-description well-formed (third-person, use-case context, length)? Is the
-skill within the token/line budget? Are there prompt injection patterns (17
-regex patterns)? Credential references? Dangerous commands (sudo, chmod 777)?
-For skills with reference files, checks that routing targets exist. For
-agents, checks disallowedTools format and constraint enforcement. Runs in
-seconds, no AI involved, fully reproducible. Feeds into Readiness +
-Correctness.
+**Layer 1 (Static Analysis)** runs deterministically — no AI involved. A Python
+tool scans every file and checks mechanical rules: does the file exist? Does the
+YAML parse? Are referenced files real? Are there prompt injection patterns?
+Credential references? Dangerous commands? Same input always produces same output.
 
-**Layer 2 (Rubric Scoring)** — A structured prompt that instructs Claude to
-read every file and score it on weighted rubric dimensions. Claude reads the
-actual content — SKILL.md, reference files, guidelines.md, command.md — and
-judges quality, specificity, redundancy, and compliance with Anthropic's
-published best practices. This is where human-like judgment happens: is this
-skill teaching something Claude doesn't already know? Is the description
-good enough to trigger at the right time? Are behavioral rules specific and
-enforceable? Feeds into Redundancy + Compliance.
+**Layer 2 (Rubric Scoring)** uses Claude to read every file and score it on
+weighted rubric dimensions. This is where human-like judgment happens: is this
+skill teaching something Claude doesn't already know? Is the description good
+enough to trigger at the right time?
+
+---
+
+## Layer 1 Rules Reference
+
+Each item below includes a Layer 1 checklist showing which Python rules passed
+or failed. Here is what each rule checks:
+
+### Skills (9 rules)
+- **SKILL.md exists** — the skill directory contains a SKILL.md file
+- **Frontmatter valid** — YAML frontmatter parses correctly, name matches directory
+- **Description required** — description field exists and is not empty
+- **Description quality** — description uses third-person, includes "use when" context, reasonable length
+- **Token budget** — SKILL.md is under the token limit and under 500 lines
+- **Broken references** — all file links and references point to files that exist
+- **Duplicate detection** — no other skill is >85% similar (TF-IDF cosine similarity)
+- **No prompt injection** — no patterns that could hijack Claude's behavior (17 regex patterns)
+- **No credential access** — no references to ~/.ssh, ~/.aws, $API_KEY, sudo, chmod 777
+
+### Commands (4 rules)
+- **Description required** — description field exists for the UI menu
+- **Script exists** — referenced script files actually exist
+- **No prompt injection** — same 17-pattern check as skills
+- **No credential access** — same credential/dangerous command check as skills
+
+### CLAUDE.md (2 rules)
+- **File exists** — CLAUDE.md is present in the project
+- **Skill duplication** — no section is >60% similar to a skill body (wasted tokens)
+
+### Hooks (1 rule)
+- **Valid structure** — commands exist, no dangerous patterns (rm -rf, git push --force, curl|bash)
+
+### Agents (6 rules)
+- **Description required** — description field exists and is not empty
+- **Referenced skills exist** — every skill listed in frontmatter has a matching SKILL.md
+- **DisallowedTools format** — entries match ToolName or ToolName(pattern) format
+- **Constraint-body match** — body constraints ("cannot push") are backed by disallowedTools
+- **No prompt injection** — same 17-pattern check
+- **No credential access** — same credential check
 
 ---
 
@@ -45,20 +74,33 @@ enforceable? Feeds into Redundancy + Compliance.
 
 ## Skills
 
-Go through each skill one by one. For each skill, evaluate all four
-dimensions and give a final verdict:
-
 ### skill-name                              ★★★★    KEEP
   Tokens: [SKILL.md tokens] (+[reference file tokens] in reference files)
   Reference files: [list or "none"]
   Guidelines: [yes/no]
 
-  **Readiness:** [PASS/FAIL] — file exists, frontmatter valid, references resolve
-  **Correctness:** [PASS/FAIL] — no injection patterns, no credential references,
-    guidelines don't conflict with CLAUDE.md
-  **Redundancy:** [score/5] — [one sentence: what's unique vs what Claude already knows]
-  **Compliance:** [summary of rubric scores]
-    Specificity: [score/5] | Trigger: [score/5] | Token eff: [score/5] | Content: [score/5]
+  Layer 1:
+    [For each of the 9 skill rules, show ✓ if passed, ⚠ with message if warning, ✗ with message if error]
+    [Example when all pass:]
+    ✓ SKILL.md exists     ✓ Frontmatter valid      ✓ Description required
+    ✓ Description quality ✓ Token budget (663)      ✓ No broken references
+    ✓ No duplicates       ✓ No prompt injection     ✓ No credential access
+
+    [Example with issues:]
+    ✓ SKILL.md exists     ✓ Frontmatter valid      ✓ Description required
+    ⚠ Description quality — lacks "Use when" context
+    ✓ Token budget (1,485) ✗ Prompt injection — "jailbreak attempt" at line 49 (false positive: WCAG term)
+    ✓ No broken references ✓ No duplicates          ✓ No credential access
+
+  Rubric:
+    **Readiness:**    [PASS/FAIL] — [one sentence from Layer 1 results]
+    **Correctness:**  [PASS/FAIL] — [one sentence]
+    **Redundancy:**   [score/5] — [one sentence: what's unique vs what Claude already knows]
+    **Compliance:**
+      Specificity: [score/5]  [one sentence justification]
+      Trigger:     [score/5]  [one sentence justification]
+      Token eff:   [score/5]  [one sentence justification]
+      Content:     [score/5]  [one sentence justification]
 
   + What's good
   ! What could improve
@@ -68,19 +110,28 @@ dimensions and give a final verdict:
 
 ## Commands
 
-Go through each command. For simple commands that score well, use a
-compact format (one line per dimension). For commands with issues, use
-the full format.
-
 ### command-name                            ★★★★    KEEP
   Tokens: [tokens]
-  Readiness: PASS | Correctness: PASS | Redundancy: [unique/redundant] | Compliance: [score]
+
+  Layer 1:
+    ✓ Description required  ✓ Script exists
+    ✓ No prompt injection   ✓ No credential access
+
+  Rubric:
+    Readiness: PASS | Correctness: PASS | Redundancy: [unique/redundant] | Compliance: [score]
+
+[For commands with issues, use the full format with per-dimension details.
+For clean commands, the compact format above is fine.]
 
 [Repeat for each command]
 
 ## Hooks
 
-For each hook entry, evaluate:
+For each hook entry:
+
+  Layer 1:
+    [✓/⚠/✗ Valid structure — result]
+
   Readiness: [command exists, script exists]
   Correctness: [no dangerous patterns, correct mechanism]
 
@@ -89,17 +140,63 @@ For each hook entry, evaluate:
 ### CLAUDE.md                               ★★★★    KEEP
   Tokens: [tokens] | Lines: [lines]
 
-  **Readiness:** PASS
-  **Correctness:** PASS — no conflicts with skills
-  **Redundancy:** [signal-to-noise score] — [generic advice?]
-  **Compliance:** Conciseness [score] | Signal-to-noise [score] | Skill separation [score] | Structure [score]
+  Layer 1:
+    ✓ File exists
+    ✓ No skill duplication
+
+  Rubric:
+    **Readiness:** PASS
+    **Correctness:** PASS — no conflicts with skills
+    **Redundancy:** [signal-to-noise score] — [generic advice?]
+    **Compliance:**
+      Conciseness:      [score/5]  [one sentence]
+      Signal-to-noise:  [score/5]  [one sentence]
+      Skill separation: [score/5]  [one sentence]
+      Structure:        [score/5]  [one sentence]
+      Conflict-free:    [score/5]  [one sentence]
 
 ## Agents (if found)
 
-[Same per-agent format with all 4 dimensions]
+### agent-name                              ★★★★    KEEP
+  Tokens: [tokens]
+
+  Layer 1:
+    ✓ Description required     ✓ Referenced skills exist
+    ✓ DisallowedTools format   ✓ Constraint-body match
+    ✓ No prompt injection      ✓ No credential access
+
+  Rubric:
+    [Same 4-dimension format as skills, with agent-specific dimensions]
 
 ## Cross-Type Optimization
-  [Transformation suggestions — only when genuinely beneficial]
+
+Answer each of the 20 checks explicitly. Do not skip any.
+
+### Transformations
+  1. Skill → Hook:               [YES/NO] — [one-line explanation]
+  2. Skill → Command:            [YES/NO] — [one-line explanation]
+  3. Command → Skill:            [YES/NO] — [one-line explanation]
+  4. Skill content → CLAUDE.md:  [YES/NO] — [one-line explanation]
+  5. CLAUDE.md → Skill:          [YES/NO] — [one-line explanation]
+  6. CLAUDE.md → Hook:           [YES/NO] — [one-line explanation]
+  7. Agent ↔ Skill consistency:  [YES/NO] — [one-line explanation]
+  8. Agent ↔ Agent overlap:      [YES/NO] — [one-line explanation]
+  9. Agent ↔ CLAUDE.md:          [YES/NO] — [one-line explanation]
+  10. Skill structure optimization: [YES/NO] — [which skills and why]
+  11. Guidelines extraction:      [YES/NO] — [which skills and why]
+
+### Setup-Wide
+  12. Merge candidates:           [YES/NO] — [which skills or "none"]
+  13. Overlapping triggers:       [YES/NO] — [which skills or "none"]
+  14. Coverage gaps:              [YES/NO] — [what's missing or "none"]
+  15. Total context budget:       [tokens] ([pct]% of context) — [OK/WARNING]
+  16. Redundancy across types:    [YES/NO] — [what's duplicated or "none"]
+  17. Conflicts across types:     [YES/NO] — [what conflicts or "none"]
+
+### Behavioral Patterns
+  18. Mandate stacking:           [YES/NO] — [how many mandates, acceptable?]
+  19. Autonomy erosion:           [YES/NO] — [which skills or "none"]
+  20. Broad trigger collision:    [YES/NO] — [which skills or "none"]
 
 ## Suggestions
   [Numbered actionable items]
@@ -113,14 +210,16 @@ This is the last thing the user sees. Keep it short — 10-15 lines max. It tell
 ## Evaluation Summary
 
 <Overall verdict — one sentence. E.g., "Your setup is solid" or "Found 2 issues that need attention.">
-Reviewed <N> skills, <M> commands, CLAUDE.md. Total: <tokens> tokens (<pct>%.
+Reviewed <N> skills, <M> commands, CLAUDE.md, <H> hooks. Total: <tokens> tokens (<pct>%).
+
+Cross-type: <count>/20 checks flagged issues.
 
 Suggestions (say "do 1", "do 2", "skip 3" to act on them):
   1. <one-line suggestion>
   2. <one-line suggestion>
   3. <one-line suggestion>
 
-Full review: <"printed above" or "saved to <filename>">
+Full review: <"printed above" or "saved to evaluation-results/evaluate-setup-YYYY-MM-DD.md">
 ```
 
 **Numbering rules:**

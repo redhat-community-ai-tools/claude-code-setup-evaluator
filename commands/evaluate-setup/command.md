@@ -24,7 +24,7 @@ Ask using AskUserQuestion:
   - **Terminal** — print everything here
   - **File** — save to a file (recommended for full scans)
 
-**If the user chose file output:** Check if `evaluate-setup-report.md` already exists. If it does, ask the user for a different filename — do NOT overwrite existing reports.
+**If the user chose file output:** Save to `evaluation-results/evaluate-setup-YYYY-MM-DD.md`. Create the `evaluation-results/` directory if it doesn't exist. If the date-based filename already exists (second run same day), append a counter: `evaluate-setup-YYYY-MM-DD-2.md`, `-3`, etc.
 
 ## Arguments
 
@@ -50,7 +50,7 @@ Run the analysis:
 uv run --project "$PROJECT_DIR" evaluate-setup scan <PATH> [--preset <PRESET>]
 ```
 
-Read the JSON output. This gives you per-skill diagnostics with rule IDs, severities, and token counts.
+Read the JSON output. This gives you per-item diagnostics with rule IDs, severities, and token counts.
 
 Layer 1 checks include: frontmatter validation, description quality (third-person POV, use-case context, length), adaptive token budget and 500-line limit, broken file references, TF-IDF cosine similarity for near-duplicate detection (threshold 0.85), prompt injection patterns (17 patterns), credential access references, and dangerous commands. For commands: prompt injection and credential access checks. For agents: description required, referenced skills exist, disallowedTools format, constraint-body enforcement match, prompt injection, credential access.
 
@@ -301,28 +301,9 @@ These checks look at patterns across the whole setup, not individual items:
 - **Autonomy erosion**: If the setup has skills that intercept broad work categories (e.g., "any creative work", "all code changes") AND those skills contain hard gates, the user loses control of their workflow. Flag when broad-trigger + hard-gate skills exist: "This skill claims authority over [broad category] and blocks progress until its precondition is met. This fights user autonomy — consider narrowing the trigger or removing the hard gate."
 - **Broad trigger collision**: Multiple skills with overlapping broad triggers (e.g., two skills both triggering on "Python files" or "code changes") waste context by loading redundant instructions. Different from "overlapping triggers" above — this specifically checks for skills that cast too wide a net individually, not just overlap with each other.
 
-### Example transformation suggestions:
+### Output format
 
-```
-## Cross-Type Optimization
-
-  ⟳ Skill → Hook: <skill> says "always run X before pushing" —
-    this should be a hook to guarantee it runs every time, not a skill that
-    Claude might skip.
-
-  ⟳ Skill → Command: <skill> says "you MUST use this before any creative work" —
-    the hard gate makes it behave like a command. Consider making it a /command
-    instead.
-
-  ⟳ CLAUDE.md → Skill: The "<section>" in CLAUDE.md (lines N-M) contains
-    domain-specific rules that only matter sometimes. Move to a skill that
-    loads on demand.
-
-  ✓ No conflicts detected between CLAUDE.md and skills.
-  ✓ No redundant content detected across types.
-```
-
-These are illustrative patterns — always use the actual skill/command names from the workspace being evaluated.
+Answer **every one** of the 20 checks explicitly with YES or NO and a one-line explanation. Do not skip any check. Use the numbered format defined in `report-format.md` — transformations (1-11), setup-wide (12-17), behavioral patterns (18-20).
 
 ## Step 5: Produce the Report
 
