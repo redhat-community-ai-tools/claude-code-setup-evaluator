@@ -1,0 +1,1 @@
+../../commands/repo-sync/command.md
