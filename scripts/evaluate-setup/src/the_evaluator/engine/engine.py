@@ -12,6 +12,7 @@ from the_evaluator.engine.types import (
     Diagnostic,
     DiagnosticLocation,
     LintResult,
+    ParsedAgent,
     ParsedClaudeMd,
     ParsedCommand,
     ParsedHooks,
@@ -32,6 +33,18 @@ except Exception:
 
 def _count_tokens(text: str) -> int:
     return len(_ENCODER.encode(text))
+
+
+def _is_nested_repo(child: Path, scan_root: Path) -> bool:
+    """True if any directory between scan_root and child is a separate git repo."""
+    current = child if child.is_dir() else child.parent
+    scan_root = scan_root.resolve()
+    current = current.resolve()
+    while current != scan_root and len(current.parts) > len(scan_root.parts):
+        if (current / ".git").exists():
+            return True
+        current = current.parent
+    return False
 
 
 def _interpolate(template: str, data: dict[str, str | int] | None) -> str:
@@ -259,11 +272,145 @@ def parse_hooks(settings_path: str) -> ParsedHooks:
     if isinstance(hooks_data, dict):
         for event, hook_list in hooks_data.items():
             if isinstance(hook_list, list):
-                for hook in hook_list:
-                    hooks.append({"event": event, **(hook if isinstance(hook, dict) else {"command": str(hook)})})
+                for hook_entry in hook_list:
+                    if not isinstance(hook_entry, dict):
+                        hooks.append({"event": event, "command": str(hook_entry)})
+                        continue
+                    nested = hook_entry.get("hooks", [])
+                    if isinstance(nested, list) and nested:
+                        for sub_hook in nested:
+                            if isinstance(sub_hook, dict) and "command" in sub_hook:
+                                hooks.append({"event": event, "command": sub_hook["command"], **{k: v for k, v in hook_entry.items() if k != "hooks"}})
+                    elif "command" in hook_entry:
+                        hooks.append({"event": event, **hook_entry})
+                    else:
+                        hooks.append({"event": event, **hook_entry})
 
     return ParsedHooks(
         file_path=settings_path, hooks=hooks, raw_content=raw_content,
+    )
+
+
+def parse_agent(agent_path: str) -> ParsedAgent:
+    """Parse an agent .md file into a ParsedAgent."""
+    path = Path(agent_path)
+    parse_errors: list[str] = []
+
+    if not path.exists() or not path.is_file():
+        return ParsedAgent(
+            dir_path=str(path.parent), file_name=path.name,
+            agent_md_path=str(path), raw_content="",
+            frontmatter={}, raw_frontmatter="", frontmatter_start_line=0,
+            body="", body_start_line=0,
+            referenced_skills=[], disallowed_tools=[], allowed_tools=[],
+            model=None, sibling_files={}, files=[],
+            parse_errors=[f"File not found: {path}"],
+        )
+
+    raw_content = path.read_text()
+
+    frontmatter: dict = {}
+    raw_frontmatter = ""
+    frontmatter_start_line = 0
+    body = raw_content
+    body_start_line = 1
+
+    lines = raw_content.split("\n")
+    if lines and lines[0].strip() == "---":
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                frontmatter_start_line = 1
+                raw_frontmatter = "\n".join(lines[1:i])
+                body = "\n".join(lines[i + 1:])
+                body_start_line = i + 2
+                try:
+                    parsed = yaml.safe_load(raw_frontmatter)
+                    if isinstance(parsed, dict):
+                        frontmatter = parsed
+                    else:
+                        parse_errors.append("Frontmatter is not a YAML mapping")
+                except yaml.YAMLError as e:
+                    parse_errors.append(f"YAML parse error: {e}")
+                break
+        else:
+            parse_errors.append("Frontmatter opening '---' found but no closing '---'")
+
+    referenced_skills = frontmatter.get("skills", []) or []
+    if isinstance(referenced_skills, str):
+        referenced_skills = [s.strip() for s in referenced_skills.split(",")]
+
+    disallowed_raw = frontmatter.get("disallowedTools", "") or ""
+    if isinstance(disallowed_raw, list):
+        disallowed_tools = [str(t).strip() for t in disallowed_raw if str(t).strip()]
+    else:
+        disallowed_tools = [t.strip() for t in disallowed_raw.split(",") if t.strip()]
+
+    allowed_raw = frontmatter.get("tools", "") or ""
+    if isinstance(allowed_raw, list):
+        allowed_tools = [str(t).strip() for t in allowed_raw if str(t).strip()]
+    else:
+        allowed_tools = [t.strip() for t in allowed_raw.split(",") if t.strip()]
+
+    model = frontmatter.get("model")
+
+    agent_dir = path.parent
+    scaffold_root = agent_dir.parent
+    sibling_files: dict[str, list[str]] = {}
+    for sibling_name in ("harness", "policies", "scripts", "schemas", "env"):
+        sibling_dir = scaffold_root / sibling_name
+        if sibling_dir.is_dir():
+            sibling_files[sibling_name] = sorted(
+                str(p.relative_to(scaffold_root))
+                for p in sibling_dir.rglob("*") if p.is_file()
+            )
+
+    tokens = _count_tokens(raw_content)
+
+    return ParsedAgent(
+        dir_path=str(agent_dir), file_name=path.name,
+        agent_md_path=str(path), raw_content=raw_content,
+        frontmatter=frontmatter, raw_frontmatter=raw_frontmatter,
+        frontmatter_start_line=frontmatter_start_line,
+        body=body, body_start_line=body_start_line,
+        referenced_skills=referenced_skills,
+        disallowed_tools=disallowed_tools,
+        allowed_tools=allowed_tools, model=model,
+        sibling_files=sibling_files,
+        files=_list_files(agent_dir),
+        parse_errors=parse_errors, tokens=tokens,
+    )
+
+
+def lint_agent(
+    agent_path: str,
+    config_rules: dict[str, str | list] | None = None,
+    all_skills: list[ParsedSkill] | None = None,
+) -> LintResult:
+    """Lint a single agent .md file."""
+    agent = parse_agent(agent_path)
+    diagnostics: list[Diagnostic] = []
+
+    for parse_error in agent.parse_errors:
+        diagnostics.append(Diagnostic(
+            rule_id="parser", severity=Severity.ERROR, message=parse_error,
+            location=DiagnosticLocation(file=agent.agent_md_path), category="structural",
+        ))
+
+    rule_diags, suppression_count = _run_rules(
+        TargetType.AGENT, agent.agent_md_path, agent.raw_content,
+        skill=None, target=agent, config_rules=config_rules,
+        all_skills=all_skills,
+    )
+    diagnostics.extend(rule_diags)
+
+    return LintResult(
+        target_path=agent_path, target_name=agent.file_name.removesuffix(".md"),
+        tokens=agent.tokens, target_type="agent", diagnostics=diagnostics,
+        error_count=sum(1 for d in diagnostics if d.severity == Severity.ERROR),
+        warning_count=sum(1 for d in diagnostics if d.severity == Severity.WARNING),
+        info_count=sum(1 for d in diagnostics if d.severity == Severity.INFO),
+        fixable_count=sum(1 for d in diagnostics if d.fix is not None),
+        suppression_count=suppression_count,
     )
 
 
@@ -275,6 +422,7 @@ def _run_rules(
     target: object | None,
     config_rules: dict[str, str | list] | None,
     all_skills: list[ParsedSkill] | None = None,
+    all_commands: list[ParsedCommand] | None = None,
 ) -> tuple[list[Diagnostic], int]:
     """Run rules for a given target type. Returns (diagnostics, suppression_count)."""
     diagnostics: list[Diagnostic] = []
@@ -342,6 +490,7 @@ def _run_rules(
             options=options,
             target=target,
             all_skills=all_skills or [],
+            all_commands=all_commands or [],
         )
         rule.create(context)
 
@@ -377,7 +526,12 @@ def lint(skill_path: str, config_rules: dict[str, str | list] | None = None) -> 
     )
 
 
-def lint_command(command_path: str, config_rules: dict[str, str | list] | None = None) -> LintResult:
+def lint_command(
+    command_path: str,
+    config_rules: dict[str, str | list] | None = None,
+    all_skills: list[ParsedSkill] | None = None,
+    all_commands: list[ParsedCommand] | None = None,
+) -> LintResult:
     """Lint a single command directory."""
     cmd = parse_command(command_path)
     diagnostics: list[Diagnostic] = []
@@ -391,6 +545,7 @@ def lint_command(command_path: str, config_rules: dict[str, str | list] | None =
     rule_diags, suppression_count = _run_rules(
         TargetType.COMMAND, cmd.command_md_path, cmd.raw_content,
         skill=None, target=cmd, config_rules=config_rules,
+        all_skills=all_skills, all_commands=all_commands,
     )
     diagnostics.extend(rule_diags)
 
@@ -481,11 +636,11 @@ def lint_directory(
     if not path.is_dir():
         return results
 
-    excluded = {".git", ".venv", "node_modules", "repositories", "__pycache__", "tests"}
+    excluded = {".git", ".venv", "node_modules", "__pycache__", "tests"}
     skill_dirs: list[Path] = []
     for p in sorted(path.rglob("SKILL.md")):
         relative_parts = p.relative_to(path).parts
-        if excluded.isdisjoint(relative_parts):
+        if excluded.isdisjoint(relative_parts) and not _is_nested_repo(p, path):
             skill_dirs.append(p.parent)
 
     if not skill_dirs and (path / "SKILL.md").exists():

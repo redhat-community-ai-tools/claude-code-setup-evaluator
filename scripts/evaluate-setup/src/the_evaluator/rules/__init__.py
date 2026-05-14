@@ -6,7 +6,7 @@ def register_all_rules() -> None:
     # Skill rules
     from the_evaluator.rules.structural.skill_md_exists import SkillMdExists
     from the_evaluator.rules.frontmatter.description_required import DescriptionRequired
-    from the_evaluator.rules.frontmatter.trigger_quality import TriggerQuality
+    from the_evaluator.rules.frontmatter.description_quality import DescriptionQuality
     from the_evaluator.rules.frontmatter.format_valid import FormatValid
     from the_evaluator.rules.content.token_budget import TokenBudget
     from the_evaluator.rules.content.broken_references import BrokenReferences
@@ -17,19 +17,30 @@ def register_all_rules() -> None:
     # Command rules
     from the_evaluator.rules.commands.description_required import CommandDescriptionRequired
     from the_evaluator.rules.commands.script_exists import CommandScriptExists
+    from the_evaluator.rules.commands.no_prompt_injection import CommandNoPromptInjection
+    from the_evaluator.rules.commands.no_credential_access import CommandNoCredentialAccess
+    from the_evaluator.rules.commands.skill_overlap import CommandSkillOverlap
+    from the_evaluator.rules.commands.duplicate_detection import CommandDuplicateDetection
 
     # CLAUDE.md rules
-    from the_evaluator.rules.claude_md.line_count import ClaudeMdLineCount
-    from the_evaluator.rules.claude_md.generic_advice import ClaudeMdGenericAdvice
+    from the_evaluator.rules.claude_md.exists import ClaudeMdExists
     from the_evaluator.rules.claude_md.skill_duplication import ClaudeMdSkillDuplication
 
     # Hooks rules
     from the_evaluator.rules.hooks.valid_structure import HooksValidStructure
 
+    # Agent rules
+    from the_evaluator.rules.agents.description_required import AgentDescriptionRequired
+    from the_evaluator.rules.agents.referenced_skills_exist import ReferencedSkillsExist
+    from the_evaluator.rules.agents.disallowed_tools_parseable import DisallowedToolsParseable
+    from the_evaluator.rules.agents.constraint_body_match import ConstraintBodyMatch
+    from the_evaluator.rules.agents.no_prompt_injection import AgentNoPromptInjection
+    from the_evaluator.rules.agents.no_credential_access import AgentNoCredentialAccess
+
     for rule_cls in [
         SkillMdExists,
         DescriptionRequired,
-        TriggerQuality,
+        DescriptionQuality,
         FormatValid,
         TokenBudget,
         BrokenReferences,
@@ -38,9 +49,18 @@ def register_all_rules() -> None:
         NoCredentialAccess,
         CommandDescriptionRequired,
         CommandScriptExists,
-        ClaudeMdLineCount,
-        ClaudeMdGenericAdvice,
+        CommandNoPromptInjection,
+        CommandNoCredentialAccess,
+        CommandSkillOverlap,
+        CommandDuplicateDetection,
+        ClaudeMdExists,
         ClaudeMdSkillDuplication,
         HooksValidStructure,
+        AgentDescriptionRequired,
+        ReferencedSkillsExist,
+        DisallowedToolsParseable,
+        ConstraintBodyMatch,
+        AgentNoPromptInjection,
+        AgentNoCredentialAccess,
     ]:
         register_rule(rule_cls())

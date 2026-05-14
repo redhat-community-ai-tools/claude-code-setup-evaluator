@@ -9,17 +9,9 @@ from the_evaluator.engine.types import (
     Severity,
     TargetType,
 )
+from the_evaluator.utils.similarity import tfidf_similarity
 
-
-def _jaccard(text_a: str, text_b: str) -> float:
-    words_a = set(text_a.lower().split())
-    words_b = set(text_b.lower().split())
-    if not words_a or not words_b:
-        return 0.0
-    return len(words_a & words_b) / len(words_a | words_b)
-
-
-OVERLAP_THRESHOLD = 0.40
+OVERLAP_THRESHOLD = 0.60
 
 
 class ClaudeMdSkillDuplication:
@@ -30,7 +22,7 @@ class ClaudeMdSkillDuplication:
         description="CLAUDE.md should not duplicate content that's already in skills",
         category=RuleCategory.CONTENT,
         messages={
-            "overlap": "CLAUDE.md section '{{section}}' has {{pct}}% word overlap with skill '{{skill}}' — consider removing the duplicate content from CLAUDE.md since the skill loads on demand",
+            "overlap": "CLAUDE.md section '{{section}}' has {{pct}}% similarity with skill '{{skill}}' — consider removing the duplicate content from CLAUDE.md since the skill loads on demand",
         },
         target_type=TargetType.CLAUDE_MD,
     )
@@ -49,7 +41,7 @@ class ClaudeMdSkillDuplication:
                 if not skill.body or len(skill.body.split()) < 20:
                     continue
 
-                similarity = _jaccard(section_text, skill.body)
+                similarity = tfidf_similarity(section_text, skill.body)
                 if similarity >= OVERLAP_THRESHOLD:
                     context.report(ReportDescriptor(
                         message_id="overlap",

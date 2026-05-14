@@ -112,6 +112,12 @@ repositories/*
 /site
 /.ai-workspace/site
 
+# Evaluation output files (reports, logs)
+evaluation-results/
+
+# Paper / blog drafts (local only, not published via repo)
+paper/
+
 # Temporary files and directories used by AI agents.
 # Ignore all content in .tmp/, but keep the directory itself.
 .tmp/*

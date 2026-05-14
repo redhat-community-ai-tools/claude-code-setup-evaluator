@@ -24,7 +24,6 @@ class FormatValid:
             "no_frontmatter": "No YAML frontmatter found — skill files should start with '---'",
             "missing_name": "Field 'name' is missing from frontmatter",
             "name_mismatch": "Frontmatter 'name' ({{fm_name}}) does not match directory name ({{dir_name}})",
-            "description_too_long": "Description is {{length}} characters — should be under 1024",
         },
     )
 
@@ -57,12 +56,3 @@ class FormatValid:
                 )
             )
 
-        description = skill.frontmatter.get("description", "")
-        if isinstance(description, str) and len(description) > 1024:
-            context.report(
-                ReportDescriptor(
-                    message_id="description_too_long",
-                    data={"length": str(len(description))},
-                    location=loc,
-                )
-            )
