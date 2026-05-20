@@ -84,7 +84,7 @@ AGENTS (I spawn these automatically for parallel/specialized work):
 Based on what the user is currently doing, suggest specific tools:
 
 **If there are uncommitted changes:**
-→ "You have changes ready. Consider `/review` to check quality, then `/quality-gate` before pushing."
+→ "You have changes ready. Consider `/verify` to check it works, then `/quality-gate` before pushing."
 
 **If they just cloned or are new to the repo:**
 → "New to this repo? Ask me to explain how the project works and I'll onboard you."
@@ -115,9 +115,8 @@ End with a recommended workflow for their situation:
 SUGGESTED WORKFLOW:
   1. /plan          — align on approach before coding
   2. (write code)   — skills activate automatically
-  3. /review        — check the changes
-  4. /verify        — confirm it works
-  5. /quality-gate  — pre-push safety check
+  3. /verify        — confirm it works
+  4. /quality-gate  — pre-push safety check
 ```
 
 ## Important

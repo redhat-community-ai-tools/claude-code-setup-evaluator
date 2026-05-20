@@ -1,15 +1,16 @@
 ---
 name: verification-loop
 version: "1.0"
-description: Unified verification engine for Python data science projects. Covers environment checks, type checking, linting, tests, security scans, code review with DS anti-patterns, and notebook checks. Commands (/verify, /review, /quality-gate) invoke different subsets of this skill.
+description: Unified verification engine for Python data science projects. Covers environment checks, type checking, linting, tests, security scans, code review with DS anti-patterns, and notebook checks. Commands (/verify, /quality-gate) invoke different subsets of this skill.
 ---
 
 # Verification Loop
 
 The single source of truth for all code checks. Commands invoke specific phases:
 - `/verify` → Phases 1-4 (does my code work?)
-- `/review` → Phase 5 (is the code good?)
 - `/quality-gate` → Phases 1-4 + Phase 6 (safe to push?)
+
+Phase 5 (code review) runs when the user asks for a code review directly.
 
 ## When to Activate
 

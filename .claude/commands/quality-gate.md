@@ -13,7 +13,7 @@ Phases:
 2. Type check
 3. Lint check
 4. Test suite
-5. *(skip Phase 5 — that's /review)*
+5. *(skip Phase 5 — code review is separate)*
 6. Pre-push security scan + .gitignore audit + pre-commit hooks
 
 Produces a verdict: **READY TO PUSH** or **BLOCKED** with reasons.

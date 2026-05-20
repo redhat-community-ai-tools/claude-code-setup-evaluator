@@ -12,7 +12,7 @@ Use the Skill tool to invoke `verification-loop` explicitly, then run **Phases 1
 
 If the Skill tool is not available or the skill is not found, run the checks directly using the commands from each phase (see the verification-loop skill for exact commands).
 
-Report results. Do NOT run code review (Phase 5) or security scan (Phase 6) — those are for `/review` and `/quality-gate`.
+Report results. Do NOT run code review (Phase 5) or security scan (Phase 6) — Phase 6 is for `/quality-gate`.
 
 ## Arguments
 

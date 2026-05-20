@@ -50,7 +50,7 @@ Skills are knowledge that Claude carries in the background. You don't trigger th
 | `data-pipeline-patterns` | Pipeline stage design, validation, circuit breakers |
 | `systematic-debugging` | 4-phase root cause analysis: reproduce, isolate, hypothesize, verify |
 | `refactoring-patterns` | Measurement-driven refactoring with before/after metrics |
-| `verification-loop` | Powers `/verify`, `/review`, `/quality-gate` |
+| `verification-loop` | Powers `/verify`, `/quality-gate` |
 | `brainstorming` | Design exploration before implementation |
 | `writing-plans` | Creates implementation plans from approved specs |
 
@@ -61,7 +61,6 @@ Skills are knowledge that Claude carries in the background. You don't trigger th
 | `/evaluate-setup` | Anytime | Evaluate your entire Claude Code setup (see below) |
 | `/evaluate-skill` | Testing a skill | Deep-evaluate one skill with A/B testing (see below) |
 | `/verify` | After coding | Check types, lint, tests |
-| `/review` | Before pushing | Code review with security checks |
 | `/quality-gate` | Before `git push` | Tests + secret scan |
 | `/refactor-safe` | After review | Refactor without changing public API |
 | `/test-coverage` | Adding tests | Find untested code, generate tests |
@@ -115,7 +114,7 @@ Claude: Where do you want the report? > Terminal / File
         Reviewed 9 skills, 17 commands, CLAUDE.md. Total: 2,690 tokens (1.3%).
 
         Suggestions:
-          1. Remove clean-code-guide skill (100% redundant with Claude defaults)
+          1. Add "Use when" prefix to 3 skill descriptions
 ```
 
 ### `/evaluate-skill` — Deep-evaluate a single skill
@@ -132,8 +131,6 @@ Claude: Layer 1: 0 errors, 1 warning
         Layer 3: KEEP (2W/0L/1T) — skill made a measurable difference
         Final:   KEEP
 ```
-
-> **Note:** `skills/clean-code-guide` and `commands/check-code` are intentionally low-quality examples included for testing the evaluator. Run `/evaluate-setup` to see how they get flagged.
 
 ## Cursor Support
 

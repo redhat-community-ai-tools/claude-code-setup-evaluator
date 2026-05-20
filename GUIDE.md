@@ -41,7 +41,6 @@ Your daily workflow in 3 commands:
 
 ```
 /verify        → after coding, check it works
-/review        → code review
 /quality-gate  → before pushing
 ```
 
@@ -60,7 +59,7 @@ Skills activate on their own — you just get better results. They live in `skil
 | `data-pipeline-patterns` | Pipeline stage design, data validation, circuit breakers, checkpoint/resume, debugging | When you work on pipeline scripts or data processing code |
 | `systematic-debugging` | 4-phase root cause analysis — reproduce, isolate, hypothesize, verify. 3-strikes escalation rule. | When a test fails, an error appears, or a previous fix didn't work |
 | `refactoring-patterns` | Measurement-driven refactoring — profile before, measure after, keep only if metrics improve. Bulk mode for 10+ files. | When you say "refactor", "clean up", or code has high complexity |
-| `verification-loop` | Unified engine behind `/verify`, `/review`, `/quality-gate` — environment, types, lint, tests, review, security | When you invoke /verify, /review, or /quality-gate |
+| `verification-loop` | Unified engine behind `/verify`, `/quality-gate` — environment, types, lint, tests, review, security | When you invoke /verify or /quality-gate |
 | `brainstorming` | Design exploration before implementation — asks questions, proposes approaches, presents design for approval | When creative/design work is detected |
 | `writing-plans` | Creates implementation plans from approved specs — bite-sized tasks, exact file paths, TDD steps | After brainstorming completes or when you need a detailed plan |
 
@@ -87,7 +86,6 @@ Type the command name in the chat to run it.
 | `/evaluate-setup` | Anytime | Evaluates your entire Claude Code setup — skills, commands, CLAUDE.md, hooks |
 | `/evaluate-skill` | Testing a skill | Deep-evaluates one skill with L1+L2+L3 (including A/B testing) |
 | `/verify` | After coding | Checks if your code works (types, lint, tests) |
-| `/review` | Before pushing | Code review with security and anti-pattern checks |
 | `/quality-gate` | Right before `git push` | Pre-push safety check (tests + secret scan) |
 | `/refactor-safe` | After review | Refactors internals without changing public API |
 | `/test-coverage` | When adding tests | Finds untested code and generates missing tests |
