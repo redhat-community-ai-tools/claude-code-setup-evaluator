@@ -66,7 +66,7 @@ def _get_gemini_client():
         print("Error: GOOGLE_API_KEY not found in environment.\n", file=sys.stderr)
         print("Create a .env file in your project root with:", file=sys.stderr)
         print("  GOOGLE_API_KEY=your-key-here", file=sys.stderr)
-        print("  GEMINI_MODEL=gemini-2.5-flash  # optional, this is the default", file=sys.stderr)
+        print("  GEMINI_MODEL=gemini-3-flash-preview  # optional, this is the default", file=sys.stderr)
         print("\nMake sure .env is listed in your .gitignore.", file=sys.stderr)
         sys.exit(1)
 
@@ -76,7 +76,7 @@ def _get_gemini_client():
     # Force IPv4 — IPv6 hangs on some networks
     transport = httpx.HTTPTransport(local_address="0.0.0.0")
     http_client = httpx.Client(transport=transport)
-    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    gemini_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
     json_config = types.GenerateContentConfig(response_mime_type="application/json")
     return genai.Client(api_key=google_key, http_options={"httpx_client": http_client}), gemini_model, json_config
 
