@@ -67,6 +67,25 @@ Focused on: backend-api, frontend-app
 
 Then continue working. Apply the same focus constraint: only read/modify files in the selected repo(s) unless the user explicitly asks otherwise.
 
+### Step 5: Update tmux Window Name
+
+If running inside tmux, rename the current window to reflect the focused repo(s):
+
+```bash
+# Only if inside a tmux session
+if [ -n "$TMUX" ]; then
+  # Single repo: use repo name
+  # Multiple repos: "first-repo+N" where N is the count of additional repos
+  tmux rename-window "WINDOW_NAME"
+fi
+```
+
+Examples:
+- 1 repo selected → `tmux rename-window "backend-api"`
+- 3 repos selected → `tmux rename-window "backend-api+2"`
+
+If not inside tmux, skip this step silently.
+
 ## Important
 
 - This command **replaces** the current focus — it does not add to it

@@ -28,6 +28,17 @@
       {
         "hooks": [
           {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-workspace/scripts/branch-guard.sh\"",
+            "statusMessage": "Checking branch...",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
             "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-workspace/scripts/skill-suggest.sh\"",
             "statusMessage": "Checking skills...",
             "timeout": 5,
