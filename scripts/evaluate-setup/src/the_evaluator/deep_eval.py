@@ -22,9 +22,7 @@ from pathlib import Path
 
 import click
 
-_NEGATION_PATTERNS = re.compile(
-    r"\b(never|do not|don't|must not|mustn't|always avoid|forbidden|prohibit)\b", re.I
-)
+_NEGATION_PATTERNS = re.compile(r"\b(never|do not|don't|must not|mustn't|always avoid|forbidden|prohibit)\b", re.I)
 
 
 def _is_preventive(skill_content: str) -> bool:
@@ -59,6 +57,7 @@ def _parse_json_response(text: str) -> dict | list | None:
 
 def _get_gemini_client():
     from dotenv import load_dotenv
+
     load_dotenv()
 
     google_key = os.getenv("GOOGLE_API_KEY")
@@ -70,9 +69,10 @@ def _get_gemini_client():
         print("\nMake sure .env is listed in your .gitignore.", file=sys.stderr)
         sys.exit(1)
 
+    import httpx
     from google import genai
     from google.genai import types
-    import httpx
+
     # Force IPv4 — IPv6 hangs on some networks
     transport = httpx.HTTPTransport(local_address="0.0.0.0")
     http_client = httpx.Client(transport=transport)
@@ -91,6 +91,7 @@ def _parse_skill(skill_path: str) -> tuple[str, str, str]:
 
     content = skill_md.read_text()
     import yaml
+
     lines = content.split("\n")
     description = ""
     body = content
@@ -102,7 +103,7 @@ def _parse_skill(skill_path: str) -> tuple[str, str, str]:
                     description = fm.get("description", "") if isinstance(fm, dict) else ""
                 except Exception:
                     pass
-                body = "\n".join(lines[i + 1:])
+                body = "\n".join(lines[i + 1 :])
                 break
     return description, body, content
 
@@ -172,7 +173,10 @@ def screen_skills(skills_dir: str):
     parsed = _parse_json_response(response.text)
 
     if not isinstance(parsed, dict):
-        parsed = {"testable": [{"name": s["name"], "reason": "screening failed, included by default"} for s in skills], "not_testable": []}
+        parsed = {
+            "testable": [{"name": s["name"], "reason": "screening failed, included by default"} for s in skills],
+            "not_testable": [],
+        }
 
     json.dump(parsed, sys.stdout, indent=2)
     print(file=sys.stdout)
@@ -291,7 +295,9 @@ def generate_tasks(skill_path: str, red_team: bool, repos_file: str | None):
 
     max_tasks = 3
     if not isinstance(parsed, list):
-        parsed = [{"task": "Review the codebase for compliance with this skill's conventions", "type": "review", "repo": None}]
+        parsed = [
+            {"task": "Review the codebase for compliance with this skill's conventions", "type": "review", "repo": None}
+        ]
     else:
         parsed = parsed[:max_tasks]
 
@@ -352,37 +358,55 @@ def validate_tasks(tasks_file: str):
         cmd = resp.text.strip().strip("`").strip()
 
         if not any(cmd.startswith(p) for p in _SAFE_CMD_PREFIXES):
-            validations.append({
-                "task_index": i,
-                "valid": False,
-                "command": cmd,
-                "output": "",
-                "reason": f"Unsafe command rejected (must start with {', '.join(_SAFE_CMD_PREFIXES)})",
-            })
+            validations.append(
+                {
+                    "task_index": i,
+                    "valid": False,
+                    "command": cmd,
+                    "output": "",
+                    "reason": f"Unsafe command rejected (must start with {', '.join(_SAFE_CMD_PREFIXES)})",
+                }
+            )
             continue
 
         try:
             result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=5,
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             has_output = bool(result.stdout.strip())
-            validations.append({
-                "task_index": i,
-                "valid": has_output,
-                "command": cmd,
-                "output": result.stdout.strip()[:500],
-                **({"reason": "Verification command returned no output"} if not has_output else {}),
-            })
+            validations.append(
+                {
+                    "task_index": i,
+                    "valid": has_output,
+                    "command": cmd,
+                    "output": result.stdout.strip()[:500],
+                    **({"reason": "Verification command returned no output"} if not has_output else {}),
+                }
+            )
         except subprocess.TimeoutExpired:
-            validations.append({
-                "task_index": i, "valid": False, "command": cmd, "output": "",
-                "reason": "Verification command timed out",
-            })
+            validations.append(
+                {
+                    "task_index": i,
+                    "valid": False,
+                    "command": cmd,
+                    "output": "",
+                    "reason": "Verification command timed out",
+                }
+            )
         except Exception as e:
-            validations.append({
-                "task_index": i, "valid": False, "command": cmd, "output": "",
-                "reason": str(e),
-            })
+            validations.append(
+                {
+                    "task_index": i,
+                    "valid": False,
+                    "command": cmd,
+                    "output": "",
+                    "reason": str(e),
+                }
+            )
 
     output = {"skill": tasks_data.get("skill", ""), "validations": validations}
     json.dump(output, sys.stdout, indent=2)
@@ -421,7 +445,12 @@ def _map_scores(parsed: dict, mapping: dict) -> dict:
 @click.argument("response_a_file", type=click.Path(exists=True))
 @click.argument("response_b_file", type=click.Path(exists=True))
 @click.option("--red-team", is_flag=True, help="Judge as adversarial resistance test")
-@click.option("--comparison-type", type=click.Choice(["absolute", "marginal"]), default="absolute", help="absolute = bare vs with-skill, marginal = all-except vs with-skill")
+@click.option(
+    "--comparison-type",
+    type=click.Choice(["absolute", "marginal"]),
+    default="absolute",
+    help="absolute = bare vs with-skill, marginal = all-except vs with-skill",
+)
 def judge(task_description: str, response_a_file: str, response_b_file: str, red_team: bool, comparison_type: str):
     """Judge which response is better using blind dimension scoring (3 votes, majority wins).
 
@@ -488,7 +517,9 @@ def judge(task_description: str, response_a_file: str, response_b_file: str, red
         resp = gemini_client.models.generate_content(model=gemini_model, contents=prompt, config=json_config)
         parsed = _parse_json_response(resp.text)
         if not isinstance(parsed, dict):
-            votes.append({"reasoning": resp.text[:200], "verdict": "tie", "test_quality": "good", "test_quality_reason": ""})
+            votes.append(
+                {"reasoning": resp.text[:200], "verdict": "tie", "test_quality": "good", "test_quality_reason": ""}
+            )
             continue
 
         winner = parsed.get("winner", "tie")

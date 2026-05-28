@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Configuration models and utilities for ai-workspace."""
 
+import tomllib
 from pathlib import Path
 
-import tomllib
 from pydantic import BaseModel, Field
 
 
@@ -82,4 +82,3 @@ def load_config(config_path: Path) -> AIWorkspaceConfig:
         data = tomllib.load(f)
 
     return AIWorkspaceConfig.model_validate(data)
-

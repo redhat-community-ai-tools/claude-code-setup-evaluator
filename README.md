@@ -48,11 +48,9 @@ Skills are knowledge that Claude carries in the background. You don't trigger th
 | `security-check` | Detects credential leaks, insecure patterns, LLM-specific risks |
 | `python-conventions` | Dotenv conventions, API client rules, TDD workflow |
 | `data-pipeline-patterns` | Pipeline stage design, validation, circuit breakers |
-| `systematic-debugging` | 4-phase root cause analysis: reproduce, isolate, hypothesize, verify |
 | `refactoring-patterns` | Measurement-driven refactoring with before/after metrics |
 | `verification-loop` | Powers `/verify`, `/quality-gate` |
 | `brainstorming` | Design exploration before implementation |
-| `writing-plans` | Creates implementation plans from approved specs |
 
 ### Commands (you trigger these)
 

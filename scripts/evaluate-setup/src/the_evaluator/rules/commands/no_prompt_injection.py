@@ -44,10 +44,7 @@ class CommandNoPromptInjection:
             for label, pattern in _INJECTION_PATTERNS:
                 if pattern.search(line):
                     is_quoted = stripped.startswith(">") or stripped.startswith('"')
-                    is_example = any(
-                        w in line.lower()
-                        for w in ["for example", "e.g.", "such as", "like:"]
-                    )
+                    is_example = any(w in line.lower() for w in ["for example", "e.g.", "such as", "like:"])
 
                     if in_code_fence:
                         message_id = "injection_in_code_block"
@@ -59,13 +56,15 @@ class CommandNoPromptInjection:
                         message_id = "injection_detected"
                         severity_override = None
 
-                    context.report(ReportDescriptor(
-                        message_id=message_id,
-                        data={"label": label, "line": str(i + 1)},
-                        location=DiagnosticLocation(
-                            file=cmd.command_md_path,
-                            start_line=i + 1,
-                        ),
-                        severity_override=severity_override,
-                    ))
+                    context.report(
+                        ReportDescriptor(
+                            message_id=message_id,
+                            data={"label": label, "line": str(i + 1)},
+                            location=DiagnosticLocation(
+                                file=cmd.command_md_path,
+                                start_line=i + 1,
+                            ),
+                            severity_override=severity_override,
+                        )
+                    )
                     break

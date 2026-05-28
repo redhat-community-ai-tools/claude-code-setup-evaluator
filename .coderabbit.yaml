@@ -1,0 +1,221 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# =============================================================================
+# General
+# =============================================================================
+language: en-US
+tone_instructions: >-
+  Prefer concise responses (high information density, low fluff).
+  This is a Claude Code meta-workspace with shared AI skills, slash commands,
+  hooks, and a built-in setup evaluator. Python 3.11+, pytest, uv.
+early_access: false
+
+# =============================================================================
+# Reviews
+# =============================================================================
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  commit_status: false
+  fail_commit_status: false
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  suggested_reviewers: false
+  estimate_code_review_effort: false
+  abort_on_close: true
+  disable_cache: false
+
+  slop_detection:
+    enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Path filters
+  # ---------------------------------------------------------------------------
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!**/.venv/**"
+    - "!**/node_modules/**"
+    - "!**/uv.lock"
+    - "!.ai-workspace/lib/**"
+    - "!.ai-workspace/templates/**"
+    - "!evaluation-results/**"
+
+  # ---------------------------------------------------------------------------
+  # Path instructions
+  # ---------------------------------------------------------------------------
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        - Prioritize Critical and Major severity issues. Minimize Minor and Trivial findings.
+        - Flag bugs, security vulnerabilities, logic errors, and meaningful refactoring opportunities.
+        - No pure style or formatting suggestions — ruff handles that in CI.
+        - Limit to 3-5 comments max; group similar issues; mention repeated patterns once.
+        - If nothing is broken, approve briefly.
+
+    - path: "skills/*/SKILL.md"
+      instructions: |
+        This is an AI skill definition. Check for:
+        - Clear "description" in YAML frontmatter with "Use when" trigger phrases
+        - Actionable instructions, not vague guidance
+        - No duplication of what Claude already knows natively
+        - No coercive trigger language ("you MUST activate", "ALWAYS use this skill")
+
+    - path: "commands/*/*.md"
+      instructions: |
+        This is a slash command prompt. Check for:
+        - YAML frontmatter with "description" field
+        - Clear step-by-step instructions
+        - No overlap with existing commands or skills
+        - Total size should stay under 15KB per command.md
+
+    - path: "CLAUDE.md"
+      instructions: |
+        This is the main AI agent instructions file. Check for:
+        - Consistency with actual skills/ and commands/ directories
+        - No stale references to removed features
+        - No secrets, tokens, or credentials
+
+    - path: "README.md"
+      instructions: |
+        Check that skill and command tables match what actually exists
+        in skills/ and commands/ directories. Flag any ghost references
+        to skills or commands that don't exist.
+
+    - path: "scripts/evaluate-setup/**/*.py"
+      instructions: |
+        This is the setup evaluator engine. Check for:
+        - Rule functions following the RuleContext/ReportDescriptor pattern
+        - Correct severity levels (ERROR for blockers, WARNING for suggestions)
+        - No false positives from overly broad pattern matching
+
+    - path: ".github/workflows/*.yml"
+      instructions: |
+        Validate GitHub Actions syntax and check for security best practices
+        (pinned action versions, minimal permissions, no secret exposure).
+
+    - path: ".claude/**"
+      instructions: |
+        Claude Code hooks and settings. Check for:
+        - Hooks should not block normal workflow (short timeouts)
+        - Secret scan patterns should not have false positives
+        - No credentials or tokens in settings files
+
+  # ---------------------------------------------------------------------------
+  # Auto review
+  # ---------------------------------------------------------------------------
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+
+  # ---------------------------------------------------------------------------
+  # Finishing touches
+  # ---------------------------------------------------------------------------
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+    simplify:
+      enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Pre-merge checks
+  # ---------------------------------------------------------------------------
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: >-
+        Use conventional commit format: type(scope): description.
+        Types: feat, fix, chore, docs, refactor, test, ci.
+
+    custom_checks:
+      - name: "Security and Secret Handling"
+        mode: error
+        instructions: |
+          BLOCKING. Flag:
+          1. Secrets, API keys, or tokens hardcoded in source or committed in config files.
+          2. .env files or credentials added to tracked files.
+          3. Secret patterns in hook scripts that could false-positive on legitimate code.
+          4. Sensitive data in skill/command prompts (internal URLs, real usernames).
+
+          Per violation: file, lines, risk. If clean, mark PASSED.
+
+      - name: "Skill and Command Quality"
+        mode: warning
+        instructions: |
+          Flag:
+          1. Skills that duplicate what Claude already knows (generic Python, git, testing advice).
+          2. Commands over 15KB that should be split into command.md + reference files.
+          3. Skills or commands referencing files that don't exist in the repo.
+          4. README/GUIDE listing skills or commands that don't exist (ghost references).
+
+          If clean, mark PASSED.
+
+  # ---------------------------------------------------------------------------
+  # Tools
+  # ---------------------------------------------------------------------------
+  tools:
+    # Python
+    ruff:
+      enabled: true
+    flake8:
+      enabled: false # conflicts with ruff
+    pylint:
+      enabled: false # conflicts with ruff
+
+    # Shell / CI
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+
+    # Docs / Config
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    languagetool:
+      enabled: true
+
+    # Security
+    gitleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+
+    # General
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
+
+# =============================================================================
+# Chat
+# =============================================================================
+chat:
+  auto_reply: true
+
+# =============================================================================
+# Knowledge base
+# =============================================================================
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: false
+  code_guidelines:
+    enabled: true
+  learnings:
+    scope: global
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto

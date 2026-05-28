@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-
 from pathlib import Path
 
 from the_evaluator.engine.types import (
@@ -14,11 +13,10 @@ from the_evaluator.engine.types import (
 )
 
 _FILE_REF_PATTERNS = [
-    re.compile(r"\[.*?\]\(([^)]+)\)"),          # markdown links [text](path)
-    re.compile(r"`([^`]+\.\w{1,5})`"),           # inline code with extension `file.py`
+    re.compile(r"\[.*?\]\(([^)]+)\)"),  # markdown links [text](path)
+    re.compile(r"`([^`]+\.\w{1,5})`"),  # inline code with extension `file.py`
     re.compile(r"(?:scripts|references|assets)/[\w./-]+"),  # directory references
 ]
-
 
 
 class BrokenReferences:

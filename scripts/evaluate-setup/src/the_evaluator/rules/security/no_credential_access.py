@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 from the_evaluator.engine.types import (
     DiagnosticLocation,
     ReportDescriptor,
@@ -42,7 +41,6 @@ _DANGEROUS_COMMANDS = [
     (re.compile(r"\bchmod\s+777\b"), "chmod 777"),
     (re.compile(r"\bchown\s+root\b"), "chown root"),
 ]
-
 
 
 class NoCredentialAccess:

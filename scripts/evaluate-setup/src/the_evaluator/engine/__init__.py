@@ -1,16 +1,16 @@
 from the_evaluator.engine.engine import lint, lint_directory
-from the_evaluator.engine.registry import register_rule, get_all_rules, clear_rules
+from the_evaluator.engine.registry import clear_rules, get_all_rules, register_rule
 from the_evaluator.engine.types import (
-    Severity,
-    RuleCategory,
-    RuleMeta,
     Diagnostic,
     DiagnosticFix,
     DiagnosticLocation,
-    ReportDescriptor,
-    RuleContext,
-    ParsedSkill,
     LintResult,
+    ParsedSkill,
+    ReportDescriptor,
+    RuleCategory,
+    RuleContext,
+    RuleMeta,
+    Severity,
 )
 
 __all__ = [

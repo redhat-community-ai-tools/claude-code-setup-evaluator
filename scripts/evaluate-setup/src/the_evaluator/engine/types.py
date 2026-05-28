@@ -1,17 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Optional, Protocol
+from enum import StrEnum
+from typing import Any, Protocol
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
 
 
-class TargetType(str, Enum):
+class TargetType(StrEnum):
     SKILL = "skill"
     COMMAND = "command"
     CLAUDE_MD = "claude_md"
@@ -19,7 +20,7 @@ class TargetType(str, Enum):
     AGENT = "agent"
 
 
-class RuleCategory(str, Enum):
+class RuleCategory(StrEnum):
     STRUCTURAL = "structural"
     FRONTMATTER = "frontmatter"
     CONTENT = "content"
@@ -30,13 +31,13 @@ class RuleCategory(str, Enum):
 @dataclass(frozen=True)
 class DiagnosticLocation:
     file: str
-    start_line: Optional[int] = None
+    start_line: int | None = None
 
 
 @dataclass(frozen=True)
 class DiagnosticFix:
     description: str
-    replacement: Optional[str] = None
+    replacement: str | None = None
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ class Diagnostic:
     message: str
     location: DiagnosticLocation
     category: RuleCategory
-    fix: Optional[DiagnosticFix] = None
+    fix: DiagnosticFix | None = None
 
 
 @dataclass
@@ -63,10 +64,10 @@ class RuleMeta:
 @dataclass
 class ReportDescriptor:
     message_id: str
-    data: Optional[dict[str, str | int]] = None
-    location: Optional[DiagnosticLocation] = None
-    fix: Optional[DiagnosticFix] = None
-    severity_override: Optional[Severity] = None
+    data: dict[str, str | int] | None = None
+    location: DiagnosticLocation | None = None
+    fix: DiagnosticFix | None = None
+    severity_override: Severity | None = None
 
 
 @dataclass
@@ -148,7 +149,7 @@ class RuleContext:
     report: Callable[[ReportDescriptor], None]
     severity: Severity
     options: list[Any] = field(default_factory=list)
-    target: Optional[ParsedFile] = None
+    target: ParsedFile | None = None
     all_skills: list[ParsedSkill] = field(default_factory=list)
     all_commands: list[ParsedCommand] = field(default_factory=list)
 

@@ -1,7 +1,7 @@
 [project]
 name = "the-evaluator"
 version = "1.0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",

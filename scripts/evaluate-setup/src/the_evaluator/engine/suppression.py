@@ -2,12 +2,8 @@ from __future__ import annotations
 
 import re
 
-_FILE_WIDE_RE = re.compile(
-    r"<!--\s*evaluator-ignore:\s*([\w/,\s-]+)\s*-->", re.IGNORECASE
-)
-_NEXT_LINE_RE = re.compile(
-    r"<!--\s*evaluator-ignore-next-line:\s*([\w/,\s-]+)\s*-->", re.IGNORECASE
-)
+_FILE_WIDE_RE = re.compile(r"<!--\s*evaluator-ignore:\s*([\w/,\s-]+)\s*-->", re.IGNORECASE)
+_NEXT_LINE_RE = re.compile(r"<!--\s*evaluator-ignore-next-line:\s*([\w/,\s-]+)\s*-->", re.IGNORECASE)
 
 
 def parse_suppressions(raw_content: str) -> dict[int | None, set[str]]:
