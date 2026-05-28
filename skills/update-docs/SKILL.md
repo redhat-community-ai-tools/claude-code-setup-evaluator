@@ -1,7 +1,13 @@
 ---
 name: update-docs
 version: "1.0"
-description: Detects documentation files that have become stale due to code changes and applies targeted updates. Use when implementing features, fixing bugs, or refactoring code that may invalidate existing docs. Relevant for any repository with in-repo documentation.
+description: >-
+  Use when implementing features, fixing bugs, or refactoring code that may
+  invalidate existing docs. Detects stale documentation by matching the code
+  diff against in-repo doc files and applies targeted updates. Relevant when
+  code changes rename, remove, or add APIs, fields, config keys, or CLI flags.
+  Also applies when the user says "update docs", "check docs", or "are the
+  docs stale", or when reviewing a branch for documentation accuracy.
 ---
 
 # Update Docs
@@ -11,15 +17,6 @@ a changed API signature, a removed configuration option — each can leave
 docs describing behavior that no longer exists. This skill detects that
 drift by matching the code diff against in-repo documentation and
 updating docs whose descriptions contradict the new code.
-
-## When to Activate
-
-- After implementing a feature or bug fix, before creating a PR
-- When code changes rename, remove, or change the behavior of public APIs
-- When the user says "update docs", "check docs", or "are the docs stale"
-- When new code adds features, fields, or APIs that existing docs should reference
-- After refactoring that changes function signatures, config keys, or CLI flags
-- When reviewing a branch and noticing documentation may be out of date
 
 ## Process
 
