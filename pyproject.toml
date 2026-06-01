@@ -1,7 +1,7 @@
 [project]
 name = "claude-code-setup-evaluator"
 version = "1.0.0"
-description = "Claude Code workspace with built-in setup evaluation for skills, commands, CLAUDE.md, and hooks."
+description = "Claude Code workspace with shared skills, commands, and hooks for day-to-day development."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,22 +13,17 @@ dependencies = [
 dev = [
     "pre-commit>=4.3.0",
     "pytest>=9.0.1",
-    "click>=8.0",
-    "httpx>=0.24",
-    "python-dotenv>=1.0",
     "ruff>=0.11",
 ]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+exclude = ["archive"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/test_evaluate_setup/test_engine.py" = ["E402"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["the_evaluator"]

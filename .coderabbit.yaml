@@ -7,7 +7,7 @@ language: en-US
 tone_instructions: >-
   Prefer concise responses (high information density, low fluff).
   This is a Claude Code meta-workspace with shared AI skills, slash commands,
-  hooks, and a built-in setup evaluator. Python 3.11+, pytest, uv.
+  and hooks. Python 3.11+, pytest, uv.
 early_access: false
 
 # =============================================================================
@@ -20,7 +20,7 @@ reviews:
   poem: false
   collapse_walkthrough: true
   sequence_diagrams: true
-  commit_status: false
+  commit_status: true
   fail_commit_status: false
   assess_linked_issues: true
   related_issues: true
@@ -30,9 +30,6 @@ reviews:
   estimate_code_review_effort: false
   abort_on_close: true
   disable_cache: false
-
-  slop_detection:
-    enabled: true
 
   # ---------------------------------------------------------------------------
   # Path filters
@@ -44,7 +41,6 @@ reviews:
     - "!**/uv.lock"
     - "!.ai-workspace/lib/**"
     - "!.ai-workspace/templates/**"
-    - "!evaluation-results/**"
     - "!paper/**"
     - "!archive/**"
 
@@ -96,13 +92,6 @@ reviews:
         Check that skill and command tables match what actually exists
         in skills/ and commands/ directories. Flag any ghost references
         to skills or commands that don't exist.
-
-    - path: "scripts/evaluate-setup/**/*.py"
-      instructions: |
-        This is the setup evaluator engine. Check for:
-        - Rule functions following the RuleContext/ReportDescriptor pattern
-        - Correct severity levels (ERROR for blockers, WARNING for suggestions)
-        - No false positives from overly broad pattern matching
 
     - path: ".github/workflows/*.yml"
       instructions: |
@@ -214,18 +203,3 @@ reviews:
 chat:
   auto_reply: true
 
-# =============================================================================
-# Knowledge base
-# =============================================================================
-knowledge_base:
-  opt_out: false
-  web_search:
-    enabled: false
-  code_guidelines:
-    enabled: true
-  learnings:
-    scope: global
-  issues:
-    scope: auto
-  pull_requests:
-    scope: auto
