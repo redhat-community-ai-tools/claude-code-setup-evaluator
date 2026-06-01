@@ -1,6 +1,6 @@
 ## Overview
 
-This is a **meta-repository** for Claude Code. It serves as a unified workspace with shared skills, commands, and an automated setup evaluator — so every team member gets consistent, high-quality AI assistance from day one.
+This is a **meta-repository** for Claude Code. It serves as a unified workspace with shared skills, commands, and hooks — so every team member gets consistent, high-quality AI assistance from day one.
 
 **Note:** The "Agent Docs" listing below is auto-generated from frontmatter in markdown files in [`agent-docs/`](agent-docs/).
 

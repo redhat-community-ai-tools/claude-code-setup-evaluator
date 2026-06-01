@@ -7,7 +7,7 @@ language: en-US
 tone_instructions: >-
   Prefer concise responses (high information density, low fluff).
   This is a Claude Code meta-workspace with shared AI skills, slash commands,
-  hooks, and a built-in setup evaluator. Python 3.11+, pytest, uv.
+  and hooks. Python 3.11+, pytest, uv.
 early_access: false
 
 # =============================================================================
@@ -44,7 +44,6 @@ reviews:
     - "!**/uv.lock"
     - "!.ai-workspace/lib/**"
     - "!.ai-workspace/templates/**"
-    - "!evaluation-results/**"
     - "!paper/**"
     - "!archive/**"
 
@@ -96,13 +95,6 @@ reviews:
         Check that skill and command tables match what actually exists
         in skills/ and commands/ directories. Flag any ghost references
         to skills or commands that don't exist.
-
-    - path: "scripts/evaluate-setup/**/*.py"
-      instructions: |
-        This is the setup evaluator engine. Check for:
-        - Rule functions following the RuleContext/ReportDescriptor pattern
-        - Correct severity levels (ERROR for blockers, WARNING for suggestions)
-        - No false positives from overly broad pattern matching
 
     - path: ".github/workflows/*.yml"
       instructions: |
