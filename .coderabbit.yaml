@@ -45,6 +45,8 @@ reviews:
     - "!.ai-workspace/lib/**"
     - "!.ai-workspace/templates/**"
     - "!evaluation-results/**"
+    - "!paper/**"
+    - "!archive/**"
 
   # ---------------------------------------------------------------------------
   # Path instructions
@@ -54,7 +56,7 @@ reviews:
       instructions: |
         - Prioritize Critical and Major severity issues. Minimize Minor and Trivial findings.
         - Flag bugs, security vulnerabilities, logic errors, and meaningful refactoring opportunities.
-        - No pure style or formatting suggestions — ruff handles that in CI.
+        - No pure style or formatting suggestions; ruff handles that in CI.
         - Limit to 3-5 comments max; group similar issues; mention repeated patterns once.
         - If nothing is broken, approve briefly.
 
@@ -73,6 +75,14 @@ reviews:
         - Clear step-by-step instructions
         - No overlap with existing commands or skills
         - Total size should stay under 15KB per command.md
+
+    - path: "agent-docs/*.md"
+      instructions: |
+        This is a modular agent-doc read by Claude before specific task types. Check for:
+        - YAML frontmatter with name, description, and when-to-read fields
+        - Actionable instructions, not abstract guidance
+        - "when-to-read" should describe concrete triggers, not vague situations
+        - No overlap with other agent-docs or skills
 
     - path: "CLAUDE.md"
       instructions: |
