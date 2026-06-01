@@ -37,14 +37,10 @@ def is_safe_to_remove(dir_path: Path, readme_name: str = "README.md") -> bool:
     contents = list(dir_path.iterdir())
     if not contents:
         return True
-    if len(contents) == 1 and contents[0].name == readme_name:
-        return True
-    return False
+    return len(contents) == 1 and contents[0].name == readme_name
 
 
-def manage_features(
-    config: AIWorkspaceConfig, base_dir: Path, *, check: bool = False
-) -> list[str]:
+def manage_features(config: AIWorkspaceConfig, base_dir: Path, *, check: bool = False) -> list[str]:
     """Ensure feature directories match config.
 
     In check mode, returns a list of issues found without modifying anything.
@@ -77,10 +73,7 @@ def manage_features(
             if dir_path.exists():
                 if is_safe_to_remove(dir_path):
                     if check:
-                        issues.append(
-                            f"Feature directory '{dir_name}/' should be removed"
-                            " (feature disabled)"
-                        )
+                        issues.append(f"Feature directory '{dir_name}/' should be removed (feature disabled)")
                     else:
                         shutil.rmtree(dir_path)
                         print(f"Removed {dir_path}/ (feature disabled)")
@@ -214,9 +207,8 @@ def count_items(base_dir: Path, dir_name: str, pattern: str) -> int:
 
     count = 0
     for item in target_dir.iterdir():
-        if item.is_dir() and not item.name.startswith("."):
-            if (item / pattern).exists():
-                count += 1
+        if item.is_dir() and not item.name.startswith(".") and (item / pattern).exists():
+            count += 1
     return count
 
 
@@ -253,14 +245,8 @@ def render_agents_md_content(config: AIWorkspaceConfig, base_dir: Path) -> str:
 
     # Gather data
     agent_docs = load_agent_docs(base_dir) if config.features.agent_docs else []
-    skills_count = (
-        count_items(base_dir, "skills", "SKILL.md") if config.features.skills else 0
-    )
-    commands_count = (
-        count_items(base_dir, "commands", "command.md")
-        if config.features.commands
-        else 0
-    )
+    skills_count = count_items(base_dir, "skills", "SKILL.md") if config.features.skills else 0
+    commands_count = count_items(base_dir, "commands", "command.md") if config.features.commands else 0
     project_content = load_project_content(base_dir)
 
     context = {

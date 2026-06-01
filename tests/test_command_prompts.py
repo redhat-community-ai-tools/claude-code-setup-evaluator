@@ -50,8 +50,8 @@ def _get_skill_files() -> list[Path]:
 # Command prompt tests
 # ---------------------------------------------------------------------------
 
-class TestCommandPromptStructure:
 
+class TestCommandPromptStructure:
     def test_commands_exist(self):
         commands = _get_command_files()
         assert len(commands) > 0, "No command.md files found"
@@ -59,18 +59,14 @@ class TestCommandPromptStructure:
     @pytest.mark.parametrize("cmd_path", _get_command_files(), ids=lambda p: p.parent.name)
     def test_command_has_frontmatter(self, cmd_path: Path):
         content = cmd_path.read_text()
-        assert content.startswith("---"), (
-            f"{cmd_path.parent.name}/command.md missing YAML frontmatter"
-        )
+        assert content.startswith("---"), f"{cmd_path.parent.name}/command.md missing YAML frontmatter"
 
     @pytest.mark.parametrize("cmd_path", _get_command_files(), ids=lambda p: p.parent.name)
     def test_command_has_description(self, cmd_path: Path):
         fm = _parse_frontmatter(cmd_path)
         assert fm is not None, f"{cmd_path.parent.name}: no frontmatter"
         desc = fm.get("description", "")
-        assert desc and len(str(desc).strip()) > 5, (
-            f"{cmd_path.parent.name}: description missing or too short"
-        )
+        assert desc and len(str(desc).strip()) > 5, f"{cmd_path.parent.name}: description missing or too short"
 
     @pytest.mark.parametrize("cmd_path", _get_command_files(), ids=lambda p: p.parent.name)
     def test_command_size_warning(self, cmd_path: Path):
@@ -105,18 +101,15 @@ class TestCommandPromptStructure:
                 # Skip if it looks like a generic example rather than a real reference
                 if "example" in ref_path.lower() or "your-" in ref_path:
                     continue
-                pytest.fail(
-                    f"{cmd_path.parent.name}: references script '{ref_path}' "
-                    f"that doesn't exist"
-                )
+                pytest.fail(f"{cmd_path.parent.name}: references script '{ref_path}' that doesn't exist")
 
 
 # ---------------------------------------------------------------------------
 # Skill prompt tests
 # ---------------------------------------------------------------------------
 
-class TestSkillPromptStructure:
 
+class TestSkillPromptStructure:
     def test_skills_exist(self):
         skills = _get_skill_files()
         assert len(skills) > 0, "No SKILL.md files found"
@@ -124,18 +117,14 @@ class TestSkillPromptStructure:
     @pytest.mark.parametrize("skill_path", _get_skill_files(), ids=lambda p: p.parent.name)
     def test_skill_has_frontmatter(self, skill_path: Path):
         content = skill_path.read_text()
-        assert content.startswith("---"), (
-            f"{skill_path.parent.name}/SKILL.md missing YAML frontmatter"
-        )
+        assert content.startswith("---"), f"{skill_path.parent.name}/SKILL.md missing YAML frontmatter"
 
     @pytest.mark.parametrize("skill_path", _get_skill_files(), ids=lambda p: p.parent.name)
     def test_skill_has_description(self, skill_path: Path):
         fm = _parse_frontmatter(skill_path)
         assert fm is not None, f"{skill_path.parent.name}: no frontmatter"
         desc = fm.get("description", "")
-        assert desc and len(str(desc).strip()) > 10, (
-            f"{skill_path.parent.name}: description missing or too short"
-        )
+        assert desc and len(str(desc).strip()) > 10, f"{skill_path.parent.name}: description missing or too short"
 
     @pytest.mark.parametrize("skill_path", _get_skill_files(), ids=lambda p: p.parent.name)
     def test_no_coercive_trigger_language(self, skill_path: Path):
@@ -170,21 +159,19 @@ class TestSkillPromptStructure:
         skill_dir = skill_path.parent
 
         # Check for references to skills/*.md
-        skill_refs = re.findall(r'`skills/([^`]+\.md)`', content)
+        skill_refs = re.findall(r"`skills/([^`]+\.md)`", content)
         # Also catch: Read `skills/foo.md` or Read skills/foo.md
-        skill_refs += re.findall(r'Read\s+`?skills/([^\s`]+\.md)', content)
+        skill_refs += re.findall(r"Read\s+`?skills/([^\s`]+\.md)", content)
 
         for ref in set(skill_refs):
             ref_path = skill_dir / "skills" / ref
             assert ref_path.exists(), (
-                f"{skill_path.parent.name}: references 'skills/{ref}' "
-                f"but {ref_path} doesn't exist"
+                f"{skill_path.parent.name}: references 'skills/{ref}' but {ref_path} doesn't exist"
             )
 
         # Check for guidelines.md reference
         if "guidelines.md" in content:
             guidelines = skill_dir / "guidelines.md"
             assert guidelines.exists(), (
-                f"{skill_path.parent.name}: references guidelines.md "
-                f"but {guidelines} doesn't exist"
+                f"{skill_path.parent.name}: references guidelines.md but {guidelines} doesn't exist"
             )

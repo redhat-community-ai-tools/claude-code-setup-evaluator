@@ -1,4 +1,5 @@
 """Tests for agent evaluation — parser, rules, and discovery."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -64,9 +65,16 @@ class TestAgentDescriptionRequired:
 class TestReferencedSkillsExist:
     def _make_skill(self, name: str) -> ParsedSkill:
         return ParsedSkill(
-            dir_path="", dir_name=name, skill_md_path="",
-            raw_content="", frontmatter={}, raw_frontmatter="",
-            frontmatter_start_line=0, body="", body_start_line=0, files=[],
+            dir_path="",
+            dir_name=name,
+            skill_md_path="",
+            raw_content="",
+            frontmatter={},
+            raw_frontmatter="",
+            frontmatter_start_line=0,
+            body="",
+            body_start_line=0,
+            files=[],
         )
 
     def test_missing_skills_flagged(self):
@@ -120,7 +128,7 @@ class TestConstraintBodyMatch:
         (agent_dir / "agent.md").write_text(
             '---\nname: delete-agent\ndescription: "Test agent"\n'
             'disallowedTools: "Edit"\n---\n\n'
-            'You cannot delete files.\nYou cannot install packages.\n'
+            "You cannot delete files.\nYou cannot install packages.\n"
         )
         result = lint_agent(str(agent_dir / "agent.md"))
         diags = [d for d in result.diagnostics if d.rule_id == "agent/constraint-body-match"]
@@ -144,6 +152,7 @@ class TestLintAgent:
 class TestAgentDiscovery:
     def test_find_agents_in_fixtures(self):
         from the_evaluator.cli import _find_agents
+
         agents = _find_agents(FIXTURES)
         assert len(agents) == 2
         names = {a.name for a in agents}
@@ -151,11 +160,13 @@ class TestAgentDiscovery:
 
     def test_has_agent_frontmatter(self):
         from the_evaluator.cli import _has_agent_frontmatter
+
         assert _has_agent_frontmatter(Path(GOOD_AGENT))
         assert _has_agent_frontmatter(Path(BAD_AGENT))
 
     def test_skill_not_detected_as_agent(self):
         from the_evaluator.cli import _has_agent_frontmatter
+
         skill_path = Path(__file__).parent / "fixtures" / "good-skill" / "SKILL.md"
         if skill_path.exists():
             assert not _has_agent_frontmatter(skill_path)
@@ -164,7 +175,15 @@ class TestAgentDiscovery:
 class TestFullsendIntegration:
     """Integration test against fullsend agents (if available)."""
 
-    FULLSEND_AGENTS = Path(__file__).parent.parent.parent / "repositories" / "fullsend" / "internal" / "scaffold" / "fullsend-repo" / "agents"
+    FULLSEND_AGENTS = (
+        Path(__file__).parent.parent.parent
+        / "repositories"
+        / "fullsend"
+        / "internal"
+        / "scaffold"
+        / "fullsend-repo"
+        / "agents"
+    )
 
     @pytest.mark.skipif(
         not (Path(__file__).parent.parent.parent / "repositories" / "fullsend").exists(),
@@ -172,6 +191,7 @@ class TestFullsendIntegration:
     )
     def test_lint_fullsend_agents(self):
         from the_evaluator.cli import _find_agents
+
         agents = _find_agents(self.FULLSEND_AGENTS.parent)
         assert len(agents) >= 4
 

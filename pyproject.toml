@@ -16,4 +16,19 @@ dev = [
     "click>=8.0",
     "httpx>=0.24",
     "python-dotenv>=1.0",
+    "ruff>=0.11",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_evaluate_setup/test_engine.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["the_evaluator"]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+
 from the_evaluator.engine.types import (
     DiagnosticLocation,
     ReportDescriptor,
@@ -35,10 +37,8 @@ class TokenBudget:
 
         concurrent = DEFAULT_CONCURRENT_SKILLS
         if context.options:
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 concurrent = int(context.options[0])
-            except (ValueError, IndexError):
-                pass
 
         budget = min(DEFAULT_CONTEXT_BUDGET // concurrent, ABSOLUTE_CEILING)
 

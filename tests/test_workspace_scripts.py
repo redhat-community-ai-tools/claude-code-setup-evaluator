@@ -87,17 +87,14 @@ class TestSkillSuggestHook:
         hook_path = ROOT / ".ai-workspace" / "scripts" / "skill-suggest.sh"
         hook_content = hook_path.read_text()
 
-        existing_skills = {
-            p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")
-        }
+        existing_skills = {p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md")}
 
         import re
 
         suggested = set(re.findall(r'SKILLS="\$SKILLS\s+([a-z0-9-]+)"', hook_content))
         ghost_skills = suggested - existing_skills
         assert not ghost_skills, (
-            f"skill-suggest.sh references non-existent skills: {ghost_skills}. "
-            f"Existing skills: {existing_skills}"
+            f"skill-suggest.sh references non-existent skills: {ghost_skills}. Existing skills: {existing_skills}"
         )
 
 

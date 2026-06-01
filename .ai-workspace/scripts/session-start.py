@@ -23,10 +23,9 @@ from typing import Any
 # Add lib to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
-from session_context import SessionContext
-
 # Import session-start tasks
 from repository_status import run_repository_status
+from session_context import SessionContext
 
 FORMATTERS: dict[str, Any] = {}
 
@@ -50,8 +49,7 @@ def main() -> None:
     parser.add_argument(
         "--tool",
         choices=FORMATTERS,
-        help="Output JSON in the specified tool's hook format. "
-        "Without this flag, outputs plain text.",
+        help="Output JSON in the specified tool's hook format. Without this flag, outputs plain text.",
     )
     args = parser.parse_args()
 

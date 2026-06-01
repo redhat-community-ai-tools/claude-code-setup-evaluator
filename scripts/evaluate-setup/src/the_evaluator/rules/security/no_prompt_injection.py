@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 from the_evaluator.engine.types import (
     DiagnosticLocation,
     ReportDescriptor,
@@ -31,7 +30,6 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("markdown image exfiltration", re.compile(r"!\[.*?\]\(https?://", re.I)),
     ("translate evasion", re.compile(r"translate\s+(?:this|the\s+following)\s+(?:to|into)\s+", re.I)),
 ]
-
 
 
 class NoPromptInjection:
@@ -66,10 +64,7 @@ class NoPromptInjection:
             for label, pattern in _INJECTION_PATTERNS:
                 if pattern.search(line):
                     is_quoted = stripped.startswith(">") or stripped.startswith('"')
-                    is_example = any(
-                        w in line.lower()
-                        for w in ["for example", "e.g.", "such as", "like:"]
-                    )
+                    is_example = any(w in line.lower() for w in ["for example", "e.g.", "such as", "like:"])
 
                     if in_code_fence:
                         message_id = "injection_in_code_block"

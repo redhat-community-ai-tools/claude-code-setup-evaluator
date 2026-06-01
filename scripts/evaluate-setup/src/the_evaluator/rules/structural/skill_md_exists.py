@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-
-
 from the_evaluator.engine.types import (
     DiagnosticLocation,
     ReportDescriptor,
@@ -10,7 +8,6 @@ from the_evaluator.engine.types import (
     RuleMeta,
     Severity,
 )
-
 
 
 class SkillMdExists:

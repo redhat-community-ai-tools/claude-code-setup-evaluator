@@ -13,9 +13,10 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Literal
 
 # ---------------------------------------------------------------------------
 # Task infrastructure
@@ -148,7 +149,7 @@ def main() -> None:
     print("Setting up workspace...\n")
     check_prerequisites()
 
-    for name, task_fn in TASKS:
+    for _name, task_fn in TASKS:
         result = task_fn(base_dir)
         icon = STATUS_ICONS[result.status]
         print(f"  [{icon}] {result.message}")

@@ -74,33 +74,26 @@ def _resolve_method(path: str, overrides: dict[str, str]) -> DistMethod:
     return DistMethod.SYMLINK
 
 
-def _build_targets(
-    paths: list[str], overrides: dict[str, str]
-) -> tuple[list[TargetConfig], list[str]]:
+def _build_targets(paths: list[str], overrides: dict[str, str]) -> tuple[list[TargetConfig], list[str]]:
     """Build target configs from paths and overrides. Returns (targets, errors)."""
     errors = []
 
     # Warn about override keys that don't reference any configured path
     for override_path in overrides:
         if override_path not in paths:
-            print(
-                f"  ⚠ Override '{override_path}' has no matching path in commands_paths (ignored)"
-            )
+            print(f"  ⚠ Override '{override_path}' has no matching path in commands_paths (ignored)")
 
     # Validate override values are valid methods
     for override_path, method in overrides.items():
         if method not in VALID_METHODS:
             errors.append(
-                f"Invalid method '{method}' for '{override_path}'. "
-                f"Valid methods: {', '.join(sorted(VALID_METHODS))}"
+                f"Invalid method '{method}' for '{override_path}'. Valid methods: {', '.join(sorted(VALID_METHODS))}"
             )
 
     if errors:
         return [], errors
 
-    targets = [
-        TargetConfig(path=p, method=_resolve_method(p, overrides)) for p in paths
-    ]
+    targets = [TargetConfig(path=p, method=_resolve_method(p, overrides)) for p in paths]
     return targets, []
 
 
@@ -144,9 +137,7 @@ def find_commands(base_dir: Path) -> list[Path]:
     return sorted(
         item / COMMAND_FILENAME
         for item in commands_dir.iterdir()
-        if item.is_dir()
-        and not item.name.startswith(".")
-        and (item / COMMAND_FILENAME).exists()
+        if item.is_dir() and not item.name.startswith(".") and (item / COMMAND_FILENAME).exists()
     )
 
 
@@ -219,9 +210,7 @@ def distribute(commands: list[Command], targets: list[TargetConfig], base_dir: P
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
-    parser.add_argument(
-        "--validate", action="store_true", help="Validate only, don't distribute"
-    )
+    parser.add_argument("--validate", action="store_true", help="Validate only, don't distribute")
     args = parser.parse_args()
 
     # Scripts are in .ai-workspace/scripts/, so go up two levels
@@ -240,9 +229,7 @@ def main() -> None:
             print(f"  ✗ {err}", file=sys.stderr)
         sys.exit(1)
 
-    print(
-        "Validating commands..." if args.validate else "Validating and distributing..."
-    )
+    print("Validating commands..." if args.validate else "Validating and distributing...")
     print(f"Base: {base_dir}\n")
 
     commands, errors = validate_commands(base_dir)

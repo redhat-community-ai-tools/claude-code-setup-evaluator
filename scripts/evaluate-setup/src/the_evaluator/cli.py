@@ -5,10 +5,9 @@ import sys
 from pathlib import Path
 
 import click
-
-from the_evaluator.config.loader import load_config
 import yaml
 
+from the_evaluator.config.loader import load_config
 from the_evaluator.engine.engine import (
     _is_nested_repo,
     lint_agent,
@@ -102,7 +101,9 @@ def scan(
     cmd_dirs = _find_commands(scan_path)
     parsed_commands = [parse_command(str(d)) for d in cmd_dirs]
     for cmd_dir in cmd_dirs:
-        all_results.append(lint_command(str(cmd_dir), config.rules, all_skills=parsed_skills, all_commands=parsed_commands))
+        all_results.append(
+            lint_command(str(cmd_dir), config.rules, all_skills=parsed_skills, all_commands=parsed_commands)
+        )
 
     # --- CLAUDE.md ---
     claude_paths = _find_claude_mds(scan_path)

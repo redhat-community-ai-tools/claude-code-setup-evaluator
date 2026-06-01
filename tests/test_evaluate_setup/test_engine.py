@@ -11,12 +11,12 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts" / "evalu
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from the_evaluator.engine.types import Severity, RuleCategory, RuleMeta, DiagnosticLocation, ReportDescriptor
-from the_evaluator.engine.registry import register_rule, get_all_rules, clear_rules, get_rules_by_category
-from the_evaluator.engine.engine import parse_skill, parse_command, lint, lint_command, lint_claude_md, lint_directory
-from the_evaluator.engine.suppression import parse_suppressions, is_suppressed
 from the_evaluator.config.loader import load_config
 from the_evaluator.config.presets import PRESETS
+from the_evaluator.engine.engine import lint, lint_claude_md, lint_command, lint_directory, parse_command, parse_skill
+from the_evaluator.engine.registry import clear_rules, get_all_rules, get_rules_by_category, register_rule
+from the_evaluator.engine.suppression import is_suppressed, parse_suppressions
+from the_evaluator.engine.types import RuleCategory, RuleMeta, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -78,6 +78,7 @@ class TestRegistry:
                 category=RuleCategory.CONTENT,
                 messages={"msg": "Test message"},
             )
+
             def create(self, context):
                 pass
 
@@ -95,6 +96,7 @@ class TestRegistry:
                 category=RuleCategory.CONTENT,
                 messages={},
             )
+
             def create(self, context):
                 pass
 
@@ -112,6 +114,7 @@ class TestRegistry:
                 category=RuleCategory.CONTENT,
                 messages={},
             )
+
             def create(self, context):
                 pass
 
@@ -124,6 +127,7 @@ class TestRegistry:
                 category=RuleCategory.SECURITY,
                 messages={},
             )
+
             def create(self, context):
                 pass
 
@@ -145,9 +149,12 @@ class TestConfigPresets:
 
     def test_security_disables_non_security(self):
         security_rule_ids = {
-            "security/no-prompt-injection", "security/no-credential-access",
-            "agent/no-prompt-injection", "agent/no-credential-access",
-            "command/no-prompt-injection", "command/no-credential-access",
+            "security/no-prompt-injection",
+            "security/no-credential-access",
+            "agent/no-prompt-injection",
+            "agent/no-credential-access",
+            "command/no-prompt-injection",
+            "command/no-credential-access",
         }
         for rule_id, severity in PRESETS["security"].items():
             if rule_id not in security_rule_ids:
@@ -167,9 +174,11 @@ class TestConfigPresets:
 class TestDuplicateDetection:
     def setup_method(self):
         from the_evaluator.rules.content.duplicate_detection import reset_duplicate_state
+
         reset_duplicate_state()
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_identical_skills_detected(self, tmp_path):
@@ -242,6 +251,7 @@ class TestDescriptionQuality:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_good_description_passes(self):
@@ -274,9 +284,7 @@ class TestDescriptionQuality:
     def test_too_short_flagged(self, tmp_path):
         d = tmp_path / "short-desc"
         d.mkdir()
-        (d / "SKILL.md").write_text(
-            '---\nname: short-desc\ndescription: "Code help"\n---\nBody.\n'
-        )
+        (d / "SKILL.md").write_text('---\nname: short-desc\ndescription: "Code help"\n---\nBody.\n')
         result = lint(str(d))
         diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
         messages = " ".join(d.message for d in diags)
@@ -286,9 +294,7 @@ class TestDescriptionQuality:
         d = tmp_path / "long-desc"
         d.mkdir()
         long_desc = "A" * 1030
-        (d / "SKILL.md").write_text(
-            f'---\nname: long-desc\ndescription: "{long_desc}"\n---\nBody.\n'
-        )
+        (d / "SKILL.md").write_text(f'---\nname: long-desc\ndescription: "{long_desc}"\n---\nBody.\n')
         result = lint(str(d))
         diags = [d for d in result.diagnostics if d.rule_id == "frontmatter/description-quality"]
         messages = " ".join(d.message for d in diags)
@@ -299,6 +305,7 @@ class TestCommandSecurity:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_good_command_passes(self):
@@ -327,6 +334,7 @@ class TestClaudeMdExists:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_missing_claude_md_flagged(self, tmp_path):
@@ -345,6 +353,7 @@ class TestLint:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_lint_good_skill(self):
@@ -382,6 +391,7 @@ class TestCommandSkillOverlap:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
 
     def test_overlapping_command_and_skill_detected(self, tmp_path):
@@ -395,9 +405,7 @@ class TestCommandSkillOverlap:
 
         cmd_dir = tmp_path / "my-command"
         cmd_dir.mkdir()
-        (cmd_dir / "command.md").write_text(
-            f'---\ndescription: "API review"\n---\n{shared_content}\n'
-        )
+        (cmd_dir / "command.md").write_text(f'---\ndescription: "API review"\n---\n{shared_content}\n')
 
         result = lint_command(str(cmd_dir), all_skills=parsed_skills)
         overlap_diags = [d for d in result.diagnostics if d.rule_id == "command/skill-overlap"]
@@ -409,8 +417,8 @@ class TestCommandSkillOverlap:
         skill_dir.mkdir()
         (skill_dir / "SKILL.md").write_text(
             '---\nname: python-skill\ndescription: "Python conventions"\n---\n'
-            'Use dotenv for credential management. Always validate environment variables at startup. '
-            'Set timeout=30 on all HTTP requests. Retry only transient failures.\n'
+            "Use dotenv for credential management. Always validate environment variables at startup. "
+            "Set timeout=30 on all HTTP requests. Retry only transient failures.\n"
         )
         parsed_skills = [parse_skill(str(skill_dir))]
 
@@ -418,8 +426,8 @@ class TestCommandSkillOverlap:
         cmd_dir.mkdir()
         (cmd_dir / "command.md").write_text(
             '---\ndescription: "Deploy to staging"\n---\n'
-            'Run the deployment pipeline. Check container health. Verify DNS propagation. '
-            'Monitor error rates for 15 minutes after deploy.\n'
+            "Run the deployment pipeline. Check container health. Verify DNS propagation. "
+            "Monitor error rates for 15 minutes after deploy.\n"
         )
 
         result = lint_command(str(cmd_dir), all_skills=parsed_skills)
@@ -431,8 +439,10 @@ class TestCommandDuplicateDetection:
     def setup_method(self):
         clear_rules()
         from the_evaluator.rules import register_all_rules
+
         register_all_rules()
         from the_evaluator.rules.commands.duplicate_detection import reset_command_duplicate_state
+
         reset_command_duplicate_state()
 
     def test_duplicate_commands_detected(self, tmp_path):
@@ -458,15 +468,13 @@ class TestCommandDuplicateDetection:
         cmd1 = tmp_path / "deploy"
         cmd1.mkdir()
         (cmd1 / "command.md").write_text(
-            '---\ndescription: "Deploy"\n---\n'
-            'Run deployment pipeline with health checks and DNS verification.\n'
+            '---\ndescription: "Deploy"\n---\nRun deployment pipeline with health checks and DNS verification.\n'
         )
 
         cmd2 = tmp_path / "review"
         cmd2.mkdir()
         (cmd2 / "command.md").write_text(
-            '---\ndescription: "Review"\n---\n'
-            'Review code quality with linting, type checking, and test coverage.\n'
+            '---\ndescription: "Review"\n---\nReview code quality with linting, type checking, and test coverage.\n'
         )
 
         parsed_commands = [parse_command(str(cmd1)), parse_command(str(cmd2))]
