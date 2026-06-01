@@ -20,7 +20,7 @@ reviews:
   poem: false
   collapse_walkthrough: true
   sequence_diagrams: true
-  commit_status: false
+  commit_status: true
   fail_commit_status: false
   assess_linked_issues: true
   related_issues: true
