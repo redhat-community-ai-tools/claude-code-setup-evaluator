@@ -31,9 +31,6 @@ reviews:
   abort_on_close: true
   disable_cache: false
 
-  slop_detection:
-    enabled: true
-
   # ---------------------------------------------------------------------------
   # Path filters
   # ---------------------------------------------------------------------------
@@ -206,18 +203,3 @@ reviews:
 chat:
   auto_reply: true
 
-# =============================================================================
-# Knowledge base
-# =============================================================================
-knowledge_base:
-  opt_out: false
-  web_search:
-    enabled: false
-  code_guidelines:
-    enabled: true
-  learnings:
-    scope: global
-  issues:
-    scope: auto
-  pull_requests:
-    scope: auto
